@@ -77,8 +77,20 @@ function makeSectionFace(x0: number, x1: number, z: number) {
 
 export default function Ground({ progressRef }: GroundProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const faceMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
-  const edgeMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const faceMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 1,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  }), []);
+  const edgeMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    color: "#73665a",
+    roughness: 1,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  }), []);
 
   const faces = useMemo(() => [
     makeSectionFace(LEFT_END, CUT_CENTER - CUT_HALF_WIDTH, FRONT_Z),
@@ -103,29 +115,16 @@ export default function Ground({ progressRef }: GroundProps) {
       // Once the bit has entered, the section moves upwards around it.
       groupRef.current.position.y = travel;
     }
-    if (faceMaterialRef.current) {
-      faceMaterialRef.current.opacity = reveal;
-      faceMaterialRef.current.depthWrite = reveal > 0.995;
-    }
-    if (edgeMaterialRef.current) {
-      edgeMaterialRef.current.opacity = reveal;
-      edgeMaterialRef.current.depthWrite = reveal > 0.995;
-    }
+    faceMaterial.opacity = reveal;
+    faceMaterial.depthWrite = reveal > 0.995;
+    edgeMaterial.opacity = reveal;
+    edgeMaterial.depthWrite = reveal > 0.995;
   });
 
   return (
     <group ref={groupRef} visible={false}>
       {faces.map((geometry, index) => (
-        <mesh key={index} geometry={geometry} receiveShadow>
-          <meshStandardMaterial
-            ref={index === 0 ? faceMaterialRef : undefined}
-            vertexColors
-            roughness={1}
-            transparent
-            opacity={0}
-            depthWrite={false}
-          />
-        </mesh>
+        <mesh key={index} geometry={geometry} material={faceMaterial} receiveShadow />
       ))}
       {/* A recessed back face; nothing is placed in front of the tricone. */}
       {[CUT_CENTER - CUT_HALF_WIDTH, CUT_CENTER + CUT_HALF_WIDTH].map((x) => (
@@ -149,6 +148,7 @@ export default function Ground({ progressRef }: GroundProps) {
             (FRONT_Z + BACK_Z) / 2,
           ]}
           receiveShadow
+          material={edgeMaterial}
         >
           <boxGeometry
             args={[
@@ -159,14 +159,7 @@ export default function Ground({ progressRef }: GroundProps) {
               topDepth,
             ]}
           />
-          <meshStandardMaterial
-            ref={index === 0 ? edgeMaterialRef : undefined}
-            color="#73665a"
-            roughness={1}
-            transparent
-            opacity={0}
-            depthWrite={false}
-          />
+
         </mesh>
       ))}
     </group>
