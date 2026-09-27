@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import { getDrillingMotion } from "@/lib/drillingMotion";
+import * as THREE from "three";
 import TriconeBit from "./TriconeBit";
 import Ground from "./Ground";
 
@@ -13,16 +14,20 @@ interface DrillingSceneProps {
 
 function CameraFollow({ progressRef }: DrillingSceneProps) {
   const { camera } = useThree();
+  const heroPosition = new THREE.Vector3(4, 2.2, 6);
+  const heroTarget = new THREE.Vector3(0, 0, 0);
+
+  // A less elevated and more frontal view is needed to read the cutaway,
+  // but the target remains right of center to protect the HTML text.
+  const sectionPosition = new THREE.Vector3(3.35, 0.55, 9);
+  const sectionTarget = new THREE.Vector3(0.65, -0.76, -0.4);
 
   useFrame(() => {
     const motion = getDrillingMotion(progressRef.current);
-    // Track the cutting region while preserving the original right-side composition.
-    camera.position.set(
-      4 + motion.cameraOffsetX,
-      2.2 + motion.cameraOffsetY,
-      6
-    );
-    camera.lookAt(0, motion.cameraOffsetY, 0);
+    const blend = motion.cameraBlend;
+    camera.position.lerpVectors(heroPosition, sectionPosition, blend);
+    const focus = heroTarget.clone().lerp(sectionTarget, blend);
+    camera.lookAt(focus);
   });
 
   return null;
