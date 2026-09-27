@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 import Hero from "./Hero";
+import SubsurfaceChapter from "./SubsurfaceChapter";
 import DrillingScene from "@/components/three/DrillingScene";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -17,6 +18,7 @@ export default function DrillingExperience() {
   const heroRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLDivElement>(null);
   const conclusionRef = useRef<HTMLParagraphElement>(null);
+  const subsurfaceRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef(0);
 
   useEffect(() => {
@@ -24,17 +26,19 @@ export default function DrillingExperience() {
     const hero = heroRef.current;
     const intro = introRef.current;
     const conclusion = conclusionRef.current;
-    if (!section || !hero || !intro || !conclusion) return;
+    const subsurface = subsurfaceRef.current;
+    if (!section || !hero || !intro || !conclusion || !subsurface) return;
 
     const update = (p: number) => {
       progressRef.current = p;
 
-      // A deliberate gap between messages prevents overlapping headlines.
-      // Keep the engineering message visible until the next chapter exists.
-      const heroOpacity = 1 - interval(p, 0.22, 0.36);
+      // The original entry occupies 72% of the longer shared timeline.
+      // Leave a brief gap between messages so headings never overlap.
+      const heroOpacity = 1 - interval(p, 0.158, 0.259);
       const introOpacity =
-        interval(p, 0.39, 0.51);
-      const conclusionOpacity = interval(p, 0.65, 0.78) * introOpacity;
+        interval(p, 0.281, 0.368) * (1 - interval(p, 0.72, 0.795));
+      const conclusionOpacity = interval(p, 0.468, 0.562) * introOpacity;
+      const subsurfaceOpacity = interval(p, 0.795, 0.875);
 
       gsap.set(hero, {
         autoAlpha: heroOpacity,
@@ -48,6 +52,10 @@ export default function DrillingExperience() {
       gsap.set(conclusion, {
         autoAlpha: conclusionOpacity,
         y: 16 * (1 - conclusionOpacity),
+      });
+      gsap.set(subsurface, {
+        autoAlpha: subsurfaceOpacity,
+        y: 25 * (1 - subsurfaceOpacity),
       });
     };
 
@@ -67,7 +75,7 @@ export default function DrillingExperience() {
   return (
     <section
       ref={sectionRef}
-      className="relative h-[300vh] bg-neutral-950 text-white"
+      className="relative h-[430vh] bg-neutral-950 text-white"
       aria-label="Experiencia de perforación"
     >
       <div className="sticky top-0 h-screen overflow-hidden">
@@ -96,6 +104,12 @@ export default function DrillingExperience() {
               Comienza con ingeniería.
             </p>
           </div>
+        </div>
+        <div
+          ref={subsurfaceRef}
+          className="pointer-events-none invisible absolute inset-0 z-10 flex items-center"
+        >
+          <SubsurfaceChapter />
         </div>
       </div>
     </section>
