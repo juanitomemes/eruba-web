@@ -4,63 +4,135 @@ import type { RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { getDrillingMotion } from "@/lib/drillingMotion";
+import {
+  BOREHOLE_X,
+  SURFACE_Y,
+  getDrillingMotion,
+} from "@/lib/drillingMotion";
 
 interface GroundProps {
   progressRef: RefObject<number>;
 }
 
-// Visual cross-section only: these colors and layer boundaries do not
-// represent a particular borehole or a geological interpretation.
-const SURFACE_Y = -1.7;
-const LAYER_HEIGHT = 1.0;
-const COLORS = ["#413b35", "#353532", "#292e2d"];
-const CUT_CENTER = 2.6;
-const CUT_HALF_WIDTH = 1.35;
-const LEFT_END = -0.5;
-const RIGHT_END = 5.7;
-const FRONT_Z = -0.35;
-const BACK_Z = -2.15;
+/**
+ * Open-front 2.5D conceptual section:
+ * continuous outer ground faces, a curved internal borehole wall and top caps.
+ * No real formations, depths, diameters or project measurements are implied.
+ */
+const LEFT_END = -0.65;
+const RIGHT_END = 5.85;
+const FRONT_Z = -0.25;
+const BACK_Z = -2.1;
+const SHAFT_RADIUS = 1.35;
+const WALL_DEPTH = 1.5;
+const LAYER_HEIGHT = 1.12;
+const COLORS = ["#4e463e", "#413f3a", "#303532"] as const;
 
-function makeSectionFace(x0: number, x1: number, z: number) {
+type Point = [number, number, number];
+
+function makeCutawayGeometry() {
   const positions: number[] = [];
   const colors: number[] = [];
-  const segments = 14;
 
-  const boundary = (layer: number, x: number) =>
-    SURFACE_Y - layer * LAYER_HEIGHT +
-    (layer > 0 && layer < COLORS.length
-      ? 0.055 * Math.sin(x * 2.4 + layer * 1.7)
-      : 0);
-
-  const vertex = (
-    x: number,
-    y: number,
-    color: THREE.Color
-  ) => {
-    positions.push(x, y, z);
+  function point(p: Point, color: THREE.Color) {
+    positions.push(p[0], p[1], p[2]);
     colors.push(color.r, color.g, color.b);
-  };
+  }
 
-  COLORS.forEach((hex, layer) => {
-    const color = new THREE.Color(hex);
-    for (let i = 0; i < segments; i++) {
-      const a = THREE.MathUtils.lerp(x0, x1, i / segments);
-      const b = THREE.MathUtils.lerp(x0, x1, (i + 1) / segments);
-      const topA = boundary(layer, a);
-      const topB = boundary(layer, b);
-      const bottomA = boundary(layer + 1, a);
-      const bottomB = boundary(layer + 1, b);
+  function quad(a: Point, b: Point, c: Point, d: Point, color: THREE.Color) {
+    point(a, color);
+    point(b, color);
+    point(c, color);
+    point(a, color);
+    point(c, color);
+    point(d, color);
+  }
 
-      // Counterclockwise triangles, facing the camera (+Z).
-      vertex(a, topA, color);
-      vertex(a, bottomA, color);
-      vertex(b, bottomB, color);
-
-      vertex(a, topA, color);
-      vertex(b, bottomB, color);
-      vertex(b, topB, color);
+  function boundary(layer: number, x: number) {
+    if (layer === 0) return SURFACE_Y;
+    if (layer === COLORS.length) {
+      return SURFACE_Y - layer * LAYER_HEIGHT;
     }
+    return (
+      SURFACE_Y -
+      layer * LAYER_HEIGHT +
+      0.045 * Math.sin(x * 2.1 + layer * 1.35)
+    );
+  }
+
+  function frontBank(x0: number, x1: number) {
+    const segments = 18;
+    COLORS.forEach((hex, layer) => {
+      const shade = new THREE.Color(hex);
+      for (let i = 0; i < segments; i++) {
+        const a = THREE.MathUtils.lerp(x0, x1, i / segments);
+        const b = THREE.MathUtils.lerp(x0, x1, (i + 1) / segments);
+        quad(
+          [a, boundary(layer, a), FRONT_Z],
+          [a, boundary(layer + 1, a), FRONT_Z],
+          [b, boundary(layer + 1, b), FRONT_Z],
+          [b, boundary(layer, b), FRONT_Z],
+          shade
+        );
+      }
+    });
+  }
+
+  // Both banks share the exact same formation boundaries.
+  frontBank(LEFT_END, BOREHOLE_X - SHAFT_RADIUS);
+  frontBank(BOREHOLE_X + SHAFT_RADIUS, RIGHT_END);
+
+  // Curved rear half of the hole. The camera-facing half is deliberately open.
+  // The wall is darker than the cut face to make the cavity legible.
+  const arcSteps = 32;
+  COLORS.forEach((hex, layer) => {
+    const shade = new THREE.Color(hex).multiplyScalar(0.72);
+    for (let i = 0; i < arcSteps; i++) {
+      const t0 = (i / arcSteps) * Math.PI;
+      const t1 = ((i + 1) / arcSteps) * Math.PI;
+      const x0 = BOREHOLE_X + SHAFT_RADIUS * Math.cos(t0);
+      const x1 = BOREHOLE_X + SHAFT_RADIUS * Math.cos(t1);
+      const z0 = FRONT_Z - WALL_DEPTH * Math.sin(t0);
+      const z1 = FRONT_Z - WALL_DEPTH * Math.sin(t1);
+
+      quad(
+        [x0, boundary(layer, x0), z0],
+        [x0, boundary(layer + 1, x0), z0],
+        [x1, boundary(layer + 1, x1), z1],
+        [x1, boundary(layer, x1), z1],
+        shade
+      );
+    }
+  });
+
+  // Outer return faces and slim top caps make the terrain a single section.
+  [LEFT_END, RIGHT_END].forEach((x) => {
+    COLORS.forEach((hex, layer) => {
+      const sideShade = new THREE.Color(hex).multiplyScalar(0.83);
+      quad(
+        [x, boundary(layer, x), FRONT_Z],
+        [x, boundary(layer + 1, x), FRONT_Z],
+        [x, boundary(layer + 1, x), BACK_Z],
+        [x, boundary(layer, x), BACK_Z],
+        sideShade
+      );
+    });
+  });
+
+  const capShade = new THREE.Color(COLORS[0]).multiplyScalar(1.12);
+  (
+    [
+      [LEFT_END, BOREHOLE_X - SHAFT_RADIUS],
+      [BOREHOLE_X + SHAFT_RADIUS, RIGHT_END],
+    ] as const
+  ).forEach(([x0, x1]) => {
+    quad(
+      [x0, SURFACE_Y, FRONT_Z],
+      [x1, SURFACE_Y, FRONT_Z],
+      [x1, SURFACE_Y, BACK_Z],
+      [x0, SURFACE_Y, BACK_Z],
+      capShade
+    );
   });
 
   const geometry = new THREE.BufferGeometry();
@@ -68,108 +140,49 @@ function makeSectionFace(x0: number, x1: number, z: number) {
     "position",
     new THREE.Float32BufferAttribute(positions, 3)
   );
-  geometry.setAttribute(
-    "color",
-    new THREE.Float32BufferAttribute(colors, 3)
-  );
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
   return geometry;
 }
 
 export default function Ground({ progressRef }: GroundProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const faceMaterial = useMemo(() => new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 1,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  }), []);
-  const edgeMaterial = useMemo(() => new THREE.MeshStandardMaterial({
-    color: "#554e46",
-    roughness: 1,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  }), []);
+  const geometry = useMemo(makeCutawayGeometry, []);
+  const material = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        roughness: 1,
+        metalness: 0,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }),
+    []
+  );
 
-  const faces = useMemo(() => [
-    makeSectionFace(LEFT_END, CUT_CENTER - CUT_HALF_WIDTH, FRONT_Z),
-    makeSectionFace(CUT_CENTER + CUT_HALF_WIDTH, RIGHT_END, FRONT_Z),
-    makeSectionFace(
-      CUT_CENTER - CUT_HALF_WIDTH,
-      CUT_CENTER + CUT_HALF_WIDTH,
-      BACK_Z
-    ),
-  ], []);
-
-  useEffect(() => () => {
-    faces.forEach((geometry) => geometry.dispose());
-    faceMaterial.dispose();
-    edgeMaterial.dispose();
-  }, [faces, faceMaterial, edgeMaterial]);
-
-  const totalHeight = COLORS.length * LAYER_HEIGHT;
-  const topDepth = FRONT_Z - BACK_Z;
+  useEffect(
+    () => () => {
+      geometry.dispose();
+      material.dispose();
+    },
+    [geometry, material]
+  );
 
   useFrame(() => {
-    const p = progressRef.current;
-    const motion = getDrillingMotion(p);
-    const reveal = motion.groundReveal;
-    const travel = motion.terrainY;
-
+    const motion = getDrillingMotion(progressRef.current);
     if (groupRef.current) {
-      groupRef.current.visible = reveal > 0.001;
-      // Once the bit has entered, the section moves upwards around it.
-      groupRef.current.position.y = travel;
+      groupRef.current.visible = motion.groundReveal > 0.001;
+      groupRef.current.position.y = motion.terrainY;
     }
-    faceMaterial.opacity = reveal;
-    faceMaterial.depthWrite = reveal > 0.995;
-    edgeMaterial.opacity = reveal;
-    edgeMaterial.depthWrite = reveal > 0.995;
+    material.opacity = motion.groundReveal;
+    material.depthWrite = motion.groundReveal > 0.995;
   });
 
   return (
     <group ref={groupRef} visible={false}>
-      {faces.map((geometry, index) => (
-        <mesh key={index} geometry={geometry} material={faceMaterial} receiveShadow />
-      ))}
-      {/* A recessed back face; nothing is placed in front of the tricone. */}
-      {[CUT_CENTER - CUT_HALF_WIDTH, CUT_CENTER + CUT_HALF_WIDTH].map((x) => (
-        <mesh
-          key={x}
-          position={[x, SURFACE_Y - totalHeight / 2, (FRONT_Z + BACK_Z) / 2]}
-          receiveShadow
-          material={edgeMaterial}
-        >
-          <boxGeometry args={[0.055, totalHeight, topDepth]} />
-        </mesh>
-      ))}
-      {[LEFT_END, CUT_CENTER + CUT_HALF_WIDTH].map((x, index) => (
-        <mesh
-          key={x}
-          position={[
-            index === 0
-              ? (LEFT_END + CUT_CENTER - CUT_HALF_WIDTH) / 2
-              : (CUT_CENTER + CUT_HALF_WIDTH + RIGHT_END) / 2,
-            SURFACE_Y + 0.013,
-            (FRONT_Z + BACK_Z) / 2,
-          ]}
-          receiveShadow
-          material={edgeMaterial}
-        >
-          <boxGeometry
-            args={[
-              index === 0
-                ? CUT_CENTER - CUT_HALF_WIDTH - LEFT_END
-                : RIGHT_END - CUT_CENTER - CUT_HALF_WIDTH,
-              0.026,
-              topDepth,
-            ]}
-          />
-
-        </mesh>
-      ))}
+      <mesh geometry={geometry} material={material} receiveShadow />
     </group>
   );
 }
