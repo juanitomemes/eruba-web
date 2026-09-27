@@ -2,101 +2,171 @@
 
 import type { RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
 interface GroundProps {
   progressRef: RefObject<number>;
 }
 
-// Conceptual vertical cross-section, not a representation of real site geology.
-// Its front is open and the two banks share continuous horizontal boundaries.
-const layerColors = ["#62564b", "#4d4945", "#393d3d"] as const;
-const top = -1.65;
-const layerHeight = 0.9;
-const shaftCenterX = 2.6;
-const sideWidth = 2.0;
-const sideDepth = 1.6;
-const leftX = 0.25;
-const rightX = 4.95;
-const rearZ = -1.58;
+// Visual cross-section only: these colors and layer boundaries do not
+// represent a particular borehole or a geological interpretation.
+const SURFACE_Y = -1.7;
+const LAYER_HEIGHT = 1.0;
+const COLORS = ["#5c5148", "#514b44", "#40413e"];
+const CUT_CENTER = 2.6;
+const CUT_HALF_WIDTH = 1.12;
+const LEFT_END = -0.5;
+const RIGHT_END = 5.7;
+const FRONT_Z = -0.35;
+const BACK_Z = -2.15;
+
+function makeSectionFace(x0: number, x1: number, z: number) {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const segments = 14;
+
+  const boundary = (layer: number, x: number) =>
+    SURFACE_Y - layer * LAYER_HEIGHT +
+    (layer > 0 && layer < COLORS.length
+      ? 0.055 * Math.sin(x * 2.4 + layer * 1.7)
+      : 0);
+
+  const vertex = (
+    x: number,
+    y: number,
+    color: THREE.Color
+  ) => {
+    positions.push(x, y, z);
+    colors.push(color.r, color.g, color.b);
+  };
+
+  COLORS.forEach((hex, layer) => {
+    const color = new THREE.Color(hex);
+    for (let i = 0; i < segments; i++) {
+      const a = THREE.MathUtils.lerp(x0, x1, i / segments);
+      const b = THREE.MathUtils.lerp(x0, x1, (i + 1) / segments);
+      const topA = boundary(layer, a);
+      const topB = boundary(layer, b);
+      const bottomA = boundary(layer + 1, a);
+      const bottomB = boundary(layer + 1, b);
+
+      // Counterclockwise triangles, facing the camera (+Z).
+      vertex(a, topA, color);
+      vertex(a, bottomA, color);
+      vertex(b, bottomB, color);
+
+      vertex(a, topA, color);
+      vertex(b, bottomB, color);
+      vertex(b, topB, color);
+    }
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3)
+  );
+  geometry.setAttribute(
+    "color",
+    new THREE.Float32BufferAttribute(colors, 3)
+  );
+  geometry.computeVertexNormals();
+  return geometry;
+}
 
 export default function Ground({ progressRef }: GroundProps) {
-  const rootRef = useRef<THREE.Group>(null);
-  const materials = useMemo(
-    () => layerColors.map(
-      (color) => new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.98,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-      })
-    ),
-    []
-  );
-  const edgeMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial({
-      color: "#8b7c6d",
-      roughness: 1,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-    }),
-    []
-  );
+  const groupRef = useRef<THREE.Group>(null);
+  const faceMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const edgeMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
 
-  useEffect(() => () => {
-    materials.forEach((material) => material.dispose());
-    edgeMaterial.dispose();
-  }, [materials, edgeMaterial]);
+  const faces = useMemo(() => [
+    makeSectionFace(LEFT_END, CUT_CENTER - CUT_HALF_WIDTH, FRONT_Z),
+    makeSectionFace(CUT_CENTER + CUT_HALF_WIDTH, RIGHT_END, FRONT_Z),
+    makeSectionFace(
+      CUT_CENTER - CUT_HALF_WIDTH,
+      CUT_CENTER + CUT_HALF_WIDTH,
+      BACK_Z
+    ),
+  ], []);
+
+  const totalHeight = COLORS.length * LAYER_HEIGHT;
+  const topDepth = FRONT_Z - BACK_Z;
 
   useFrame(() => {
-    const reveal = THREE.MathUtils.smoothstep(progressRef.current, 0.46, 0.62);
-    if (rootRef.current) rootRef.current.visible = reveal > 0.001;
+    const p = progressRef.current;
+    const reveal = THREE.MathUtils.smoothstep(p, 0.46, 0.62);
+    const travel = THREE.MathUtils.smoothstep(p, 0.74, 1) * 1.1;
 
-    materials.forEach((material) => {
-      material.opacity = reveal;
-      material.depthWrite = reveal >= 0.999;
-    });
-    edgeMaterial.opacity = reveal;
-    edgeMaterial.depthWrite = reveal >= 0.999;
+    if (groupRef.current) {
+      groupRef.current.visible = reveal > 0.001;
+      // Once the bit has entered, the section moves upwards around it.
+      groupRef.current.position.y = travel;
+    }
+    if (faceMaterialRef.current) {
+      faceMaterialRef.current.opacity = reveal;
+      faceMaterialRef.current.depthWrite = reveal > 0.995;
+    }
+    if (edgeMaterialRef.current) {
+      edgeMaterialRef.current.opacity = reveal;
+      edgeMaterialRef.current.depthWrite = reveal > 0.995;
+    }
   });
 
   return (
-    <group ref={rootRef} visible={false}>
-      {materials.map((material, index) => {
-        const y = top - layerHeight * (index + 0.5);
-        return (
-          <group key={layerColors[index]}>
-            {/* Two uninterrupted banks bordering the open central shaft. */}
-            <mesh position={[leftX, y, -0.8]} material={material} receiveShadow>
-              <boxGeometry args={[sideWidth, layerHeight, sideDepth]} />
-            </mesh>
-            <mesh position={[rightX, y, -0.8]} material={material} receiveShadow>
-              <boxGeometry args={[sideWidth, layerHeight, sideDepth]} />
-            </mesh>
-            {/* Recessed back face: no front wall conceals the cutting cones. */}
-            <mesh position={[shaftCenterX, y, rearZ]} material={material} receiveShadow>
-              <boxGeometry args={[2.7, layerHeight, 0.04]} />
-            </mesh>
-          </group>
-        );
-      })}
-
-      {[leftX, rightX].map((x) => (
-        <mesh key={x} position={[x, top + 0.012, -0.8]} material={edgeMaterial}>
-          <boxGeometry args={[sideWidth, 0.025, sideDepth]} />
+    <group ref={groupRef} visible={false}>
+      {faces.map((geometry, index) => (
+        <mesh key={index} geometry={geometry} receiveShadow>
+          <meshStandardMaterial
+            ref={index === 0 ? faceMaterialRef : undefined}
+            vertexColors
+            roughness={1}
+            transparent
+            opacity={0}
+            depthWrite={false}
+          />
         </mesh>
       ))}
-      {/* Light lines visually delimit the shaft's inner edges. */}
-      {[1.25, 3.95].map((x) => (
+      {/* A recessed back face; nothing is placed in front of the tricone. */}
+      {[CUT_CENTER - CUT_HALF_WIDTH, CUT_CENTER + CUT_HALF_WIDTH].map((x) => (
         <mesh
           key={x}
-          position={[x, top - (layerHeight * 3) / 2, 0.015]}
-          material={edgeMaterial}
+          position={[x, SURFACE_Y - totalHeight / 2, (FRONT_Z + BACK_Z) / 2]}
+          receiveShadow
         >
-          <boxGeometry args={[0.024, layerHeight * 3, 0.025]} />
+          <boxGeometry args={[0.055, totalHeight, topDepth]} />
+          <meshStandardMaterial color="#363634" roughness={1} />
+        </mesh>
+      ))}
+      {[LEFT_END, CUT_CENTER + CUT_HALF_WIDTH].map((x, index) => (
+        <mesh
+          key={x}
+          position={[
+            index === 0
+              ? (LEFT_END + CUT_CENTER - CUT_HALF_WIDTH) / 2
+              : (CUT_CENTER + CUT_HALF_WIDTH + RIGHT_END) / 2,
+            SURFACE_Y + 0.013,
+            (FRONT_Z + BACK_Z) / 2,
+          ]}
+          receiveShadow
+        >
+          <boxGeometry
+            args={[
+              index === 0
+                ? CUT_CENTER - CUT_HALF_WIDTH - LEFT_END
+                : RIGHT_END - CUT_CENTER - CUT_HALF_WIDTH,
+              0.026,
+              topDepth,
+            ]}
+          />
+          <meshStandardMaterial
+            ref={index === 0 ? edgeMaterialRef : undefined}
+            color="#73665a"
+            roughness={1}
+            transparent
+            opacity={0}
+            depthWrite={false}
+          />
         </mesh>
       ))}
     </group>
