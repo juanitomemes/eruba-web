@@ -1,6 +1,6 @@
 /**
- * Choreography for the introductory 3D illustration.
- * These are normalized scene units, not borehole dimensions or drilling data.
+ * Visual choreography shared by the bit, cutaway and camera.
+ * Scene units are illustrative; they are not geological or drilling data.
  */
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -16,10 +16,13 @@ export function getDrillingMotion(progress: number) {
   const groundReveal = smoothStep(progress, 0.46, 0.62);
   const approach = smoothStep(progress, 0.54, 0.66);
   const penetration = smoothStep(progress, 0.66, 1);
-  const cameraFollow = smoothStep(progress, 0.68, 1);
 
-  // The tool reaches the conceptual surface first; afterwards the terrain
-  // travels upward relative to it, keeping the cutting end visible.
+  // Transition from the original Hero view to the lower, nearly frontal
+  // cutting-zone view. All effects use this same scroll progress.
+  const cameraBlend = smoothStep(progress, 0.51, 0.87);
+
+  // The tricone first approaches the conceptual surface. Then the cutaway
+  // advances upwards around it so that the cutting cones remain in frame.
   const bitY = -0.3 * approach - 0.12 * penetration;
   const terrainY = 1.15 * penetration;
 
@@ -27,11 +30,9 @@ export function getDrillingMotion(progress: number) {
     groundReveal,
     approach,
     penetration,
-    cameraFollow,
+    cameraBlend,
     bitY,
     terrainY,
     scrollRotation: smoothStep(progress, 0.55, 1) * Math.PI * 4,
-    cameraOffsetX: cameraFollow * 0.18,
-    cameraOffsetY: cameraFollow * -0.62,
   };
 }
