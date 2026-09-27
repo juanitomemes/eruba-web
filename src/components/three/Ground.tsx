@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 interface GroundProps {
@@ -15,7 +15,7 @@ const SURFACE_Y = -1.7;
 const LAYER_HEIGHT = 1.0;
 const COLORS = ["#5c5148", "#514b44", "#40413e"];
 const CUT_CENTER = 2.6;
-const CUT_HALF_WIDTH = 1.12;
+const CUT_HALF_WIDTH = 1.35;
 const LEFT_END = -0.5;
 const RIGHT_END = 5.7;
 const FRONT_Z = -0.35;
@@ -102,6 +102,12 @@ export default function Ground({ progressRef }: GroundProps) {
     ),
   ], []);
 
+  useEffect(() => () => {
+    faces.forEach((geometry) => geometry.dispose());
+    faceMaterial.dispose();
+    edgeMaterial.dispose();
+  }, [faces, faceMaterial, edgeMaterial]);
+
   const totalHeight = COLORS.length * LAYER_HEIGHT;
   const topDepth = FRONT_Z - BACK_Z;
 
@@ -132,9 +138,9 @@ export default function Ground({ progressRef }: GroundProps) {
           key={x}
           position={[x, SURFACE_Y - totalHeight / 2, (FRONT_Z + BACK_Z) / 2]}
           receiveShadow
+          material={edgeMaterial}
         >
           <boxGeometry args={[0.055, totalHeight, topDepth]} />
-          <meshStandardMaterial color="#363634" roughness={1} />
         </mesh>
       ))}
       {[LEFT_END, CUT_CENTER + CUT_HALF_WIDTH].map((x, index) => (
