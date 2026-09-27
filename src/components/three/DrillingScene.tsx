@@ -12,22 +12,23 @@ interface DrillingSceneProps {
   progressRef: RefObject<number>;
 }
 
+const HERO_CAMERA = new THREE.Vector3(4, 2.2, 6);
+const HERO_FOCUS = new THREE.Vector3(0, 0, 0);
+const SECTION_CAMERA = new THREE.Vector3(3.35, 0.55, 9);
+const SECTION_FOCUS = new THREE.Vector3(0.65, -0.76, -0.4);
+const currentFocus = new THREE.Vector3();
+
 function CameraFollow({ progressRef }: DrillingSceneProps) {
   const { camera } = useThree();
-  const heroPosition = new THREE.Vector3(4, 2.2, 6);
-  const heroTarget = new THREE.Vector3(0, 0, 0);
 
   // A less elevated and more frontal view is needed to read the cutaway,
   // but the target remains right of center to protect the HTML text.
-  const sectionPosition = new THREE.Vector3(3.35, 0.55, 9);
-  const sectionTarget = new THREE.Vector3(0.65, -0.76, -0.4);
-
   useFrame(() => {
     const motion = getDrillingMotion(progressRef.current);
     const blend = motion.cameraBlend;
-    camera.position.lerpVectors(heroPosition, sectionPosition, blend);
-    const focus = heroTarget.clone().lerp(sectionTarget, blend);
-    camera.lookAt(focus);
+    camera.position.lerpVectors(HERO_CAMERA, SECTION_CAMERA, blend);
+    currentFocus.lerpVectors(HERO_FOCUS, SECTION_FOCUS, blend);
+    camera.lookAt(currentFocus);
   });
 
   return null;
