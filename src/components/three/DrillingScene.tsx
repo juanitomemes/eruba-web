@@ -1,13 +1,31 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
+import * as THREE from "three";
 import TriconeBit from "./TriconeBit";
 import Ground from "./Ground";
 
 interface DrillingSceneProps {
   progressRef: RefObject<number>;
+}
+
+function CameraFollow({ progressRef }: DrillingSceneProps) {
+  const { camera } = useThree();
+
+  useFrame(() => {
+    // Follow a little, rather than moving the full camera into the soil.
+    const follow = THREE.MathUtils.smoothstep(
+      progressRef.current,
+      0.7,
+      1
+    ) * 0.55;
+    camera.position.set(4, 2.2 - follow, 6);
+    camera.lookAt(0, -follow, 0);
+  });
+
+  return null;
 }
 
 export default function DrillingScene({ progressRef }: DrillingSceneProps) {
@@ -33,6 +51,7 @@ export default function DrillingScene({ progressRef }: DrillingSceneProps) {
           angle={0.5}
           penumbra={0.7}
         />
+        <CameraFollow progressRef={progressRef} />
         <Ground progressRef={progressRef} />
         <TriconeBit progressRef={progressRef} />
         <Environment preset="studio" />
