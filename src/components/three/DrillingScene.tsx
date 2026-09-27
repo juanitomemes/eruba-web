@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import TriconeBit from "./TriconeBit";
+import Ground from "./Ground";
 
 interface DrillingSceneProps {
   progressRef: RefObject<number>;
@@ -32,7 +33,7 @@ export default function DrillingScene({ progressRef }: DrillingSceneProps) {
           angle={0.5}
           penumbra={0.7}
         />
-
+        <Ground progressRef={progressRef} />
         <TriconeBit progressRef={progressRef} />
         <Environment preset="studio" />
       </Canvas>
