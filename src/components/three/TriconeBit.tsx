@@ -61,11 +61,14 @@ export default function TriconeBit({ progressRef }: TriconeBitProps) {
       ambientAngleRef.current += Math.min(delta, 0.05) * 0.08;
     }
     group.rotation.y = ambientAngleRef.current + drillingProgress * Math.PI * 4;
-    group.position.y = THREE.MathUtils.lerp(0.75, -0.75, drillingProgress);
+    // The bit approaches the surface, then remains in frame as the terrain rises.
+    const approach = THREE.MathUtils.smoothstep(progress, 0.54, 0.74);
+    const follow = THREE.MathUtils.smoothstep(progress, 0.74, 1);
+    group.position.y = THREE.MathUtils.lerp(0.0, -0.65, approach) - 0.25 * follow;
   });
 
   return (
-    <group ref={groupRef} position={[2.6, 0.75, 0]} scale={1.2}>
+    <group ref={groupRef} position={[2.6, 0, 0]} scale={0.94}>
       {/* The CAD import points upward; flip the centered geometry so the cones face down. */}
       <group rotation={[0, 0, Math.PI]}>
         <primitive object={normalizedScene} />
