@@ -61,12 +61,15 @@ export default function TriconeBit({ progressRef }: TriconeBitProps) {
       ambientAngleRef.current += Math.min(delta, 0.05) * 0.08;
     }
     group.rotation.y = ambientAngleRef.current + drillingProgress * Math.PI * 4;
-    group.position.y = THREE.MathUtils.lerp(0.15, -1.4, drillingProgress);
+    group.position.y = THREE.MathUtils.lerp(0.75, -0.75, drillingProgress);
   });
 
   return (
-    <group ref={groupRef} position={[2.6, 0.15, 0]} scale={1.2}>
-      <primitive object={normalizedScene} />
+    <group ref={groupRef} position={[2.6, 0.75, 0]} scale={1.2}>
+      {/* The CAD import points upward; flip the centered geometry so the cones face down. */}
+      <group rotation={[0, 0, Math.PI]}>
+        <primitive object={normalizedScene} />
+      </group>
     </group>
   );
 }
