@@ -119,7 +119,7 @@ function makeCutawayGeometry() {
     });
   });
 
-  const capShade = new THREE.Color(COLORS[0]).multiplyScalar(1.12);
+  const capShade = new THREE.Color(COLORS[0]).multiplyScalar(0.7);
   (
     [
       [LEFT_END, BOREHOLE_X - SHAFT_RADIUS],
