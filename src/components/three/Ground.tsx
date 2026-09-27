@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { getDrillingMotion } from "@/lib/drillingMotion";
 
 interface GroundProps {
   progressRef: RefObject<number>;
@@ -13,7 +14,7 @@ interface GroundProps {
 // represent a particular borehole or a geological interpretation.
 const SURFACE_Y = -1.7;
 const LAYER_HEIGHT = 1.0;
-const COLORS = ["#5c5148", "#514b44", "#40413e"];
+const COLORS = ["#413b35", "#353532", "#292e2d"];
 const CUT_CENTER = 2.6;
 const CUT_HALF_WIDTH = 1.35;
 const LEFT_END = -0.5;
@@ -85,7 +86,7 @@ export default function Ground({ progressRef }: GroundProps) {
     depthWrite: false,
   }), []);
   const edgeMaterial = useMemo(() => new THREE.MeshStandardMaterial({
-    color: "#73665a",
+    color: "#554e46",
     roughness: 1,
     transparent: true,
     opacity: 0,
@@ -113,8 +114,9 @@ export default function Ground({ progressRef }: GroundProps) {
 
   useFrame(() => {
     const p = progressRef.current;
-    const reveal = THREE.MathUtils.smoothstep(p, 0.46, 0.62);
-    const travel = THREE.MathUtils.smoothstep(p, 0.74, 1) * 1.1;
+    const motion = getDrillingMotion(p);
+    const reveal = motion.groundReveal;
+    const travel = motion.terrainY;
 
     if (groupRef.current) {
       groupRef.current.visible = reveal > 0.001;
