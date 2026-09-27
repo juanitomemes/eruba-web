@@ -30,9 +30,10 @@ export default function DrillingExperience() {
       progressRef.current = p;
 
       // A deliberate gap between messages prevents overlapping headlines.
+      // Keep the engineering message visible until the next chapter exists.
       const heroOpacity = 1 - interval(p, 0.22, 0.36);
       const introOpacity =
-        interval(p, 0.39, 0.51) * (1 - interval(p, 0.83, 0.95));
+        interval(p, 0.39, 0.51);
       const conclusionOpacity = interval(p, 0.65, 0.78) * introOpacity;
 
       gsap.set(hero, {
