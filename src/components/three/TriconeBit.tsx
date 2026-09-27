@@ -48,15 +48,18 @@ export default function TriconeBit({ progressRef }: TriconeBitProps) {
     const group = groupRef.current;
     if (!group) return;
 
-    // The first portion of the experience remains the original hero.
+    const progress = progressRef.current;
     const drillingProgress = THREE.MathUtils.clamp(
-      (progressRef.current - 0.35) / 0.65,
+      (progress - 0.55) / 0.45,
       0,
       1
     );
 
-    ambientAngleRef.current += Math.min(delta, 0.05) * 0.08;
-    // The scroll-driven component reverses when the user scrolls upwards.
+    // Ambient motion is only active at the start; the scroll contribution
+    // is positional and reverses when scrolling back up.
+    if (progress < 0.22) {
+      ambientAngleRef.current += Math.min(delta, 0.05) * 0.08;
+    }
     group.rotation.y = ambientAngleRef.current + drillingProgress * Math.PI * 4;
     group.position.y = THREE.MathUtils.lerp(0.15, -1.4, drillingProgress);
   });
