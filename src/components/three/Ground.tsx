@@ -26,7 +26,7 @@ const BACK_Z = -2.1;
 const SHAFT_RADIUS = 1.35;
 const WALL_DEPTH = 1.5;
 const LAYER_HEIGHT = 1.12;
-const COLORS = ["#4e463e", "#413f3a", "#303532"] as const;
+const COLORS = ["#5b4c3f", "#494843", "#303b3c"] as const;
 
 type Point = [number, number, number];
 
@@ -145,9 +145,50 @@ function makeCutawayGeometry() {
   return geometry;
 }
 
+function makeIllustrativeStriations() {
+  const vertices: number[] = [];
+  const banks: ReadonlyArray<readonly [number, number]> = [
+    [LEFT_END, BOREHOLE_X - SHAFT_RADIUS],
+    [BOREHOLE_X + SHAFT_RADIUS, RIGHT_END],
+  ];
+
+  // Subtle graphic texture and boundaries, not real lithological data.
+  for (const [x0, x1] of banks) {
+    for (let layer = 0; layer < COLORS.length; layer++) {
+      const top = SURFACE_Y - layer * LAYER_HEIGHT;
+      for (const fraction of [0.3, 0.64, 0.9]) {
+        const y = top - fraction * LAYER_HEIGHT;
+        const start = x0 + 0.09;
+        const end = x1 - 0.09;
+        const segments = 9;
+        for (let i = 0; i < segments; i++) {
+          const a = THREE.MathUtils.lerp(start, end, i / segments);
+          const b = THREE.MathUtils.lerp(start, end, (i + 1) / segments);
+          const wave = (x: number) => 0.025 * Math.sin(x * 5.2 + layer * 2.8 + fraction * 6);
+          vertices.push(a, y + wave(a), FRONT_Z + 0.008);
+          vertices.push(b, y + wave(b), FRONT_Z + 0.008);
+        }
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  return geometry;
+}
+
 export default function Ground({ progressRef }: GroundProps) {
   const groupRef = useRef<THREE.Group>(null);
   const geometry = useMemo(makeCutawayGeometry, []);
+  const striations = useMemo(makeIllustrativeStriations, []);
+  const lineMaterial = useMemo(
+    () => new THREE.LineBasicMaterial({
+      color: "#a09585",
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    }),
+    []
+  );
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
@@ -165,9 +206,11 @@ export default function Ground({ progressRef }: GroundProps) {
   useEffect(
     () => () => {
       geometry.dispose();
+      striations.dispose();
       material.dispose();
+      lineMaterial.dispose();
     },
-    [geometry, material]
+    [geometry, striations, material, lineMaterial]
   );
 
   useFrame(() => {
@@ -178,11 +221,13 @@ export default function Ground({ progressRef }: GroundProps) {
     }
     material.opacity = motion.groundReveal;
     material.depthWrite = motion.groundReveal > 0.995;
+    lineMaterial.opacity = motion.groundReveal * 0.38;
   });
 
   return (
     <group ref={groupRef} visible={false}>
       <mesh geometry={geometry} material={material} receiveShadow />
+      <lineSegments geometry={striations} material={lineMaterial} />
     </group>
   );
 }
