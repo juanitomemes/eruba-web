@@ -3,7 +3,7 @@
 import type { RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
-import * as THREE from "three";
+import { getDrillingMotion } from "@/lib/drillingMotion";
 import TriconeBit from "./TriconeBit";
 import Ground from "./Ground";
 
@@ -15,14 +15,14 @@ function CameraFollow({ progressRef }: DrillingSceneProps) {
   const { camera } = useThree();
 
   useFrame(() => {
-    // Follow a little, rather than moving the full camera into the soil.
-    const follow = THREE.MathUtils.smoothstep(
-      progressRef.current,
-      0.7,
-      1
-    ) * 0.55;
-    camera.position.set(4, 2.2 - follow, 6);
-    camera.lookAt(0, -follow, 0);
+    const motion = getDrillingMotion(progressRef.current);
+    // Track the cutting region while preserving the original right-side composition.
+    camera.position.set(
+      4 + motion.cameraOffsetX,
+      2.2 + motion.cameraOffsetY,
+      6
+    );
+    camera.lookAt(0, motion.cameraOffsetY, 0);
   });
 
   return null;
@@ -44,10 +44,10 @@ export default function DrillingScene({ progressRef }: DrillingSceneProps) {
       >
         <ambientLight intensity={0.8} />
         <directionalLight position={[5, 6, 5]} intensity={5} />
-        <directionalLight position={[-3, 1, 4]} intensity={2.5} />
+        <directionalLight position={[-3, 1, 4]} intensity={1.7} />
         <spotLight
           position={[4, 5, 6]}
-          intensity={12}
+          intensity={8}
           angle={0.5}
           penumbra={0.7}
         />
