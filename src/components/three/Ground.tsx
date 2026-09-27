@@ -9,87 +9,96 @@ interface GroundProps {
   progressRef: RefObject<number>;
 }
 
-// Conceptual cutaway, not a geological or mechanical simulation.
-// The front of the borehole is deliberately left open so the bit stays visible.
-const layers = [
-  { y: -2.05, color: "#66574b" },
-  { y: -2.85, color: "#514a43" },
-  { y: -3.65, color: "#383b3b" },
-] as const;
+// Conceptual vertical cross-section, not a representation of real site geology.
+// Its front is open and the two banks share continuous horizontal boundaries.
+const layerColors = ["#62564b", "#4d4945", "#393d3d"] as const;
+const top = -1.65;
+const layerHeight = 0.9;
+const shaftCenterX = 2.6;
+const sideWidth = 2.0;
+const sideDepth = 1.6;
+const leftX = 0.25;
+const rightX = 4.95;
+const rearZ = -1.58;
 
 export default function Ground({ progressRef }: GroundProps) {
-  const groundRef = useRef<THREE.Group>(null);
-
+  const rootRef = useRef<THREE.Group>(null);
   const materials = useMemo(
-    () => layers.map(({ color }) => new THREE.MeshStandardMaterial({
-      color,
+    () => layerColors.map(
+      (color) => new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.98,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      })
+    ),
+    []
+  );
+  const edgeMaterial = useMemo(
+    () => new THREE.MeshStandardMaterial({
+      color: "#8b7c6d",
       roughness: 1,
-      metalness: 0,
       transparent: true,
       opacity: 0,
       depthWrite: false,
-    })),
+    }),
     []
   );
 
-  const accent = useMemo(() => new THREE.MeshStandardMaterial({
-    color: "#827366",
-    roughness: 1,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  }), []);
-
   useEffect(() => () => {
     materials.forEach((material) => material.dispose());
-    accent.dispose();
-  }, [materials, accent]);
+    edgeMaterial.dispose();
+  }, [materials, edgeMaterial]);
 
   useFrame(() => {
-    const reveal = THREE.MathUtils.smoothstep(
-      progressRef.current,
-      0.47,
-      0.64
-    );
-    if (groundRef.current) groundRef.current.visible = reveal > 0.001;
-    for (const material of [...materials, accent]) {
+    const reveal = THREE.MathUtils.smoothstep(progressRef.current, 0.46, 0.62);
+    if (rootRef.current) rootRef.current.visible = reveal > 0.001;
+
+    materials.forEach((material) => {
       material.opacity = reveal;
-      material.depthWrite = reveal > 0.995;
-    }
+      material.depthWrite = reveal >= 0.999;
+    });
+    edgeMaterial.opacity = reveal;
+    edgeMaterial.depthWrite = reveal >= 0.999;
   });
 
   return (
-    <group ref={groundRef} visible={false}>
-      {layers.map((layer, i) => (
-        <group key={layer.y}>
-          {/* Layered banks to either side of an open central borehole. */}
-          <mesh position={[0.28, layer.y, -0.6]} receiveShadow material={materials[i]}>
-            <boxGeometry args={[1.8, 0.78, 2.1]} />
-          </mesh>
-          <mesh position={[4.92, layer.y, -0.6]} receiveShadow material={materials[i]}>
-            <boxGeometry args={[1.8, 0.78, 2.1]} />
-          </mesh>
-          {/* Rear wall gives the impression of a vertical section, with no front wall. */}
-          <mesh position={[2.6, layer.y, -1.66]} receiveShadow material={materials[i]}>
-            <boxGeometry args={[2.86, 0.78, 0.08]} />
-          </mesh>
-        </group>
-      ))}
+    <group ref={rootRef} visible={false}>
+      {materials.map((material, index) => {
+        const y = top - layerHeight * (index + 0.5);
+        return (
+          <group key={layerColors[index]}>
+            {/* Two uninterrupted banks bordering the open central shaft. */}
+            <mesh position={[leftX, y, -0.8]} material={material} receiveShadow>
+              <boxGeometry args={[sideWidth, layerHeight, sideDepth]} />
+            </mesh>
+            <mesh position={[rightX, y, -0.8]} material={material} receiveShadow>
+              <boxGeometry args={[sideWidth, layerHeight, sideDepth]} />
+            </mesh>
+            {/* Recessed back face: no front wall conceals the cutting cones. */}
+            <mesh position={[shaftCenterX, y, rearZ]} material={material} receiveShadow>
+              <boxGeometry args={[2.7, layerHeight, 0.04]} />
+            </mesh>
+          </group>
+        );
+      })}
 
-      {/* Surface edges: a gap remains over the bit, rather than a solid lid. */}
-      <mesh position={[0.28, -1.65, -0.6]} material={accent}>
-        <boxGeometry args={[1.8, 0.035, 2.12]} />
-      </mesh>
-      <mesh position={[4.92, -1.65, -0.6]} material={accent}>
-        <boxGeometry args={[1.8, 0.035, 2.12]} />
-      </mesh>
-      {/* Subtle reference lines mark the open shaft in the rear wall. */}
-      <mesh position={[1.16, -2.85, -1.60]} material={accent}>
-        <boxGeometry args={[0.025, 2.38, 0.025]} />
-      </mesh>
-      <mesh position={[4.04, -2.85, -1.60]} material={accent}>
-        <boxGeometry args={[0.025, 2.38, 0.025]} />
-      </mesh>
+      {[leftX, rightX].map((x) => (
+        <mesh key={x} position={[x, top + 0.012, -0.8]} material={edgeMaterial}>
+          <boxGeometry args={[sideWidth, 0.025, sideDepth]} />
+        </mesh>
+      ))}
+      {/* Light lines visually delimit the shaft's inner edges. */}
+      {[1.25, 3.95].map((x) => (
+        <mesh
+          key={x}
+          position={[x, top - (layerHeight * 3) / 2, 0.015]}
+          material={edgeMaterial}
+        >
+          <boxGeometry args={[0.024, layerHeight * 3, 0.025]} />
+        </mesh>
+      ))}
     </group>
   );
 }
