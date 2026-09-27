@@ -5,6 +5,7 @@ import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
+import { getDrillingMotion } from "@/lib/drillingMotion";
 
 interface TriconeBitProps {
   progressRef: RefObject<number>;
@@ -49,22 +50,13 @@ export default function TriconeBit({ progressRef }: TriconeBitProps) {
     if (!group) return;
 
     const progress = progressRef.current;
-    const drillingProgress = THREE.MathUtils.clamp(
-      (progress - 0.55) / 0.45,
-      0,
-      1
-    );
+    const motion = getDrillingMotion(progress);
 
-    // Ambient motion is only active at the start; the scroll contribution
-    // is positional and reverses when scrolling back up.
     if (progress < 0.22) {
       ambientAngleRef.current += Math.min(delta, 0.05) * 0.08;
     }
-    group.rotation.y = ambientAngleRef.current + drillingProgress * Math.PI * 4;
-    // The bit approaches the surface, then remains in frame as the terrain rises.
-    const approach = THREE.MathUtils.smoothstep(progress, 0.54, 0.74);
-    const follow = THREE.MathUtils.smoothstep(progress, 0.74, 1);
-    group.position.y = THREE.MathUtils.lerp(0.0, -0.65, approach) - 0.25 * follow;
+    group.rotation.y = ambientAngleRef.current + motion.scrollRotation;
+    group.position.y = motion.bitY;
   });
 
   return (
