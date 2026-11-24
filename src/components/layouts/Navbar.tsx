@@ -1,19 +1,20 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Navbar() {
     return (
         <header className="absolute left-0 top-0 z-50 w-full">
             <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6 lg:px-10">
-                <a href="/" aria-label="Eru-BA - Inicio">
+                <Link href="/" aria-label="Eru-BA - Inicio">
                     <Image
-                        src="/images/logotipo_Eru-BA.png"
+                        src="/images/Logotipo_Eru-BA.png"
                         alt="Eru-BA Drilling Consulting"
                         width={45}
                         height={45}
                         priority
                         className="h-auto w-[45px] lg:w-[45px]"
                     />
-                </a>
+                </Link>
 
                 <nav
                     aria-label="Navegación principal"
