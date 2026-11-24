@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 /**
  * Procedural deterministic material and texture system for the conceptual ground section.
- * Generates an in-memory 512x512 mineral microtexture and bump map.
+ * Generates an in-memory 512x512 mineral albedo texture and correlated bump map.
  * Zero external network requests, zero bundle asset weight, 100% deterministic.
  */
 
@@ -17,110 +17,176 @@ function createDeterministicRandom(seed: number) {
   };
 }
 
+export interface GroundTextures {
+  albedoTexture: THREE.CanvasTexture;
+  bumpTexture: THREE.CanvasTexture;
+}
+
 /**
- * Generates a 512x512 bump texture combining:
- * 1. Broad mineral tonal variation (low frequency)
- * 2. Subtle horizontal sedimentary banding (medium frequency)
- * 3. Granular sand/rock microtexture (high frequency)
+ * Generates both correlated procedural textures in a single deterministic pass:
+ * 1. Albedo modulation map (THREE.SRGBColorSpace)
+ * 2. Bump relief map (THREE.NoColorSpace)
  */
-export function createGroundBumpTexture(): THREE.CanvasTexture | null {
+export function createGroundTextures(): GroundTextures | null {
   if (typeof document === "undefined") {
     return null;
   }
 
   const size = 512;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
+  const albedoCanvas = document.createElement("canvas");
+  albedoCanvas.width = size;
+  albedoCanvas.height = size;
+  const albedoCtx = albedoCanvas.getContext("2d");
 
-  const imgData = ctx.createImageData(size, size);
-  const data = imgData.data;
+  const bumpCanvas = document.createElement("canvas");
+  bumpCanvas.width = size;
+  bumpCanvas.height = size;
+  const bumpCtx = bumpCanvas.getContext("2d");
+
+  if (!albedoCtx || !bumpCtx) return null;
+
+  const albedoImgData = albedoCtx.createImageData(size, size);
+  const bumpImgData = bumpCtx.createImageData(size, size);
+  const aData = albedoImgData.data;
+  const bData = bumpImgData.data;
 
   // Fixed seed for 100% visual determinism
   const prng = createDeterministicRandom(42819);
 
-  // Precompute smooth low-frequency noise grid (16x16)
-  const gridSize = 16;
-  const noiseGrid: number[][] = [];
-  for (let gy = 0; gy <= gridSize; gy++) {
-    noiseGrid[gy] = [];
-    for (let gx = 0; gx <= gridSize; gx++) {
-      noiseGrid[gy][gx] = prng();
-    }
+  // Precompute periodic 24x24 multi-octave noise grid for macro and warm/cool variations
+  const G = 24;
+  const macroGrid = new Float32Array(G * G);
+  const warmGrid = new Float32Array(G * G);
+  for (let i = 0; i < G * G; i++) {
+    macroGrid[i] = prng();
+    warmGrid[i] = (prng() - 0.5) * 16;
   }
 
-  function sampleLowFreq(xNorm: number, yNorm: number): number {
-    const gx = xNorm * gridSize;
-    const gy = yNorm * gridSize;
-    const x0 = Math.floor(gx) % gridSize;
-    const y0 = Math.floor(gy) % gridSize;
-    const x1 = (x0 + 1) % gridSize;
-    const y1 = (y0 + 1) % gridSize;
-    const fx = gx - Math.floor(gx);
-    const fy = gy - Math.floor(gy);
-
-    // Smoothstep interpolation
-    const sx = fx * fx * (3 - 2 * fx);
-    const sy = fy * fy * (3 - 2 * fy);
-
-    const top = noiseGrid[y0][x0] * (1 - sx) + noiseGrid[y0][x1] * sx;
-    const bot = noiseGrid[y1][x0] * (1 - sx) + noiseGrid[y1][x1] * sx;
-    return top * (1 - sy) + bot * sy;
+  const PI2 = Math.PI * 2;
+  const sinLut = new Float32Array(size);
+  for (let i = 0; i < size; i++) {
+    sinLut[i] = Math.sin((i / size) * PI2);
   }
 
   for (let y = 0; y < size; y++) {
-    const yNorm = y / size;
-    // Layer 2: Subtle horizontal sedimentary micro-banding
-    const bandWave =
-      Math.sin(yNorm * Math.PI * 18) * 0.45 +
-      Math.sin(yNorm * Math.PI * 42) * 0.25;
+    const v = y / size;
+    const gy = v * G;
+    const y0 = Math.floor(gy) % G;
+    const y1 = (y0 + 1) % G;
+    const fy = gy - Math.floor(gy);
+    const sy = fy * fy * (3 - 2 * fy);
 
     for (let x = 0; x < size; x++) {
-      const xNorm = x / size;
+      const u = x / size;
+      const gx = u * G;
+      const x0 = Math.floor(gx) % G;
+      const x1 = (x0 + 1) % G;
+      const fx = gx - Math.floor(gx);
+      const sx = fx * fx * (3 - 2 * fx);
+
       const idx = (y * size + x) * 4;
 
-      // 1. Low frequency mineral variation
-      const macro = sampleLowFreq(xNorm, yNorm);
+      // 1. Macro mineral variation (smooth periodic noise)
+      const m00 = macroGrid[y0 * G + x0];
+      const m10 = macroGrid[y0 * G + x1];
+      const m01 = macroGrid[y1 * G + x0];
+      const m11 = macroGrid[y1 * G + x1];
+      const macro =
+        (m00 * (1 - sx) + m10 * sx) * (1 - sy) +
+        (m01 * (1 - sx) + m11 * sx) * sy;
 
-      // 3. High frequency fine mineral grain
+      // Subtle warm iron/mineral shifts
+      const w00 = warmGrid[y0 * G + x0];
+      const w10 = warmGrid[y0 * G + x1];
+      const w01 = warmGrid[y1 * G + x0];
+      const w11 = warmGrid[y1 * G + x1];
+      const warm =
+        (w00 * (1 - sx) + w10 * sx) * (1 - sy) +
+        (w01 * (1 - sx) + w11 * sx) * sy;
+
+      // 2. Subtle horizontal sedimentary micro-banding
+      const lutIdx = Math.floor(u * size * 3) % size;
+      const waveU = sinLut[lutIdx] * 0.035;
+      const strata =
+        Math.sin((v + waveU) * PI2 * 14) * 0.48 +
+        Math.sin((v + waveU * 1.6) * PI2 * 28) * 0.28;
+
+      // 3. Clastic / granular micro-texture
       const grain = prng();
 
-      // Combine layers into neutral grayscale height/bump value (128 centered)
-      const baseValue = 128;
-      const macroOffset = (macro - 0.5) * 42;
-      const bandOffset = bandWave * 16;
-      const grainOffset = (grain - 0.5) * 34;
+      // --- Albedo Texture (neutral high-key modulation for vertex colors) ---
+      // Base around 228 (preserves strata differentiation without muddy darkening)
+      const baseLuminance =
+        228 + (macro - 0.5) * 36 + strata * 15 + (grain - 0.5) * 16;
+      const r = Math.max(0, Math.min(255, Math.round(baseLuminance + warm)));
+      const g = Math.max(0, Math.min(255, Math.round(baseLuminance + strata * 3)));
+      const b = Math.max(0, Math.min(255, Math.round(baseLuminance - warm)));
 
-      const gray = Math.max(0, Math.min(255, Math.round(baseValue + macroOffset + bandOffset + grainOffset)));
+      aData[idx] = r;
+      aData[idx + 1] = g;
+      aData[idx + 2] = b;
+      aData[idx + 3] = 255;
 
-      data[idx] = gray;
-      data[idx + 1] = gray;
-      data[idx + 2] = gray;
-      data[idx + 3] = 255;
+      // --- Correlated Bump Map (tactile relief matching mineral strata) ---
+      // Centers at 128, medium-scale relief gives visible tactile dimension
+      const bumpHeight =
+        128 + (macro - 0.5) * 64 + strata * 38 + (grain - 0.5) * 26;
+      const bH = Math.max(0, Math.min(255, Math.round(bumpHeight)));
+
+      bData[idx] = bH;
+      bData[idx + 1] = bH;
+      bData[idx + 2] = bH;
+      bData[idx + 3] = 255;
     }
   }
 
-  ctx.putImageData(imgData, 0, 0);
+  albedoCtx.putImageData(albedoImgData, 0, 0);
+  bumpCtx.putImageData(bumpImgData, 0, 0);
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3.5, 2.0);
-  texture.generateMipmaps = true;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.needsUpdate = true;
+  // Configure Albedo Texture
+  const albedoTexture = new THREE.CanvasTexture(albedoCanvas);
+  albedoTexture.wrapS = THREE.RepeatWrapping;
+  albedoTexture.wrapT = THREE.RepeatWrapping;
+  albedoTexture.repeat.set(3.5, 2.0);
+  albedoTexture.generateMipmaps = true;
+  albedoTexture.minFilter = THREE.LinearMipmapLinearFilter;
+  albedoTexture.magFilter = THREE.LinearFilter;
+  albedoTexture.colorSpace = THREE.SRGBColorSpace;
+  albedoTexture.needsUpdate = true;
 
-  return texture;
+  // Configure Bump Texture
+  const bumpTexture = new THREE.CanvasTexture(bumpCanvas);
+  bumpTexture.wrapS = THREE.RepeatWrapping;
+  bumpTexture.wrapT = THREE.RepeatWrapping;
+  bumpTexture.repeat.set(3.5, 2.0);
+  bumpTexture.generateMipmaps = true;
+  bumpTexture.minFilter = THREE.LinearMipmapLinearFilter;
+  bumpTexture.magFilter = THREE.LinearFilter;
+  bumpTexture.colorSpace = THREE.NoColorSpace;
+  bumpTexture.needsUpdate = true;
+
+  return { albedoTexture, bumpTexture };
+}
+
+// Backwards-compatible standalone helpers
+export function createGroundBumpTexture(): THREE.CanvasTexture | null {
+  const textures = createGroundTextures();
+  if (!textures) return null;
+  textures.albedoTexture.dispose();
+  return textures.bumpTexture;
+}
+
+export function createGroundAlbedoTexture(): THREE.CanvasTexture | null {
+  const textures = createGroundTextures();
+  if (!textures) return null;
+  textures.bumpTexture.dispose();
+  return textures.albedoTexture;
 }
 
 export const GROUND_MATERIAL_CONFIG = {
-  roughness: 0.94,
+  roughness: 0.92,
   metalness: 0.0,
-  bumpScale: 0.04,
-  lineColor: "#9e9384",
-  lineOpacityFactor: 0.35,
+  bumpScale: 0.09, // Calibrated for visible, tactile mineral relief at scene camera scale
+  lineColor: "#9c9284",
+  lineOpacityFactor: 0.28, // Refined technical linework harmonized with mineral texture
 } as const;

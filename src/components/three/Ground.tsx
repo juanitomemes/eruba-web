@@ -10,7 +10,7 @@ import {
   makeIllustrativeStriations,
 } from "@/lib/groundGeometry";
 import {
-  createGroundBumpTexture,
+  createGroundTextures,
   GROUND_MATERIAL_CONFIG,
 } from "@/lib/groundMaterials";
 
@@ -25,15 +25,16 @@ export default function Ground({ progressRef }: GroundProps) {
 
   const geometry = useMemo(() => makeCutawayGeometry(), []);
   const striations = useMemo(() => makeIllustrativeStriations(), []);
-  const bumpTexture = useMemo(() => createGroundBumpTexture(), []);
+  const textures = useMemo(() => createGroundTextures(), []);
 
   useEffect(() => {
     return () => {
       geometry.dispose();
       striations.dispose();
-      bumpTexture?.dispose();
+      textures?.albedoTexture.dispose();
+      textures?.bumpTexture.dispose();
     };
-  }, [geometry, striations, bumpTexture]);
+  }, [geometry, striations, textures]);
 
   useFrame(() => {
     const motion = getDrillingMotion(progressRef.current);
@@ -57,7 +58,8 @@ export default function Ground({ progressRef }: GroundProps) {
         <meshStandardMaterial
           ref={materialRef}
           vertexColors
-          bumpMap={bumpTexture ?? undefined}
+          map={textures?.albedoTexture ?? undefined}
+          bumpMap={textures?.bumpTexture ?? undefined}
           bumpScale={GROUND_MATERIAL_CONFIG.bumpScale}
           side={THREE.DoubleSide}
           roughness={GROUND_MATERIAL_CONFIG.roughness}
