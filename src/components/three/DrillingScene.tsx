@@ -1,37 +1,15 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
-import { getDrillingMotion } from "@/lib/drillingMotion";
-import * as THREE from "three";
 import TriconeBit from "./TriconeBit";
 import Ground from "./Ground";
+import SceneLighting from "./SceneLighting";
+import SceneCamera from "./SceneCamera";
 
 interface DrillingSceneProps {
   progressRef: RefObject<number>;
-}
-
-const HERO_CAMERA = new THREE.Vector3(4, 2.2, 6);
-const HERO_FOCUS = new THREE.Vector3(0, 0, 0);
-const SECTION_CAMERA = new THREE.Vector3(3.35, 0.55, 9);
-const SECTION_FOCUS = new THREE.Vector3(0.65, -0.76, -0.4);
-const currentFocus = new THREE.Vector3();
-
-function CameraFollow({ progressRef }: DrillingSceneProps) {
-  const { camera } = useThree();
-
-  // A less elevated and more frontal view is needed to read the cutaway,
-  // but the target remains right of center to protect the HTML text.
-  useFrame(() => {
-    const motion = getDrillingMotion(progressRef.current);
-    const blend = motion.cameraBlend;
-    camera.position.lerpVectors(HERO_CAMERA, SECTION_CAMERA, blend);
-    currentFocus.lerpVectors(HERO_FOCUS, SECTION_FOCUS, blend);
-    camera.lookAt(currentFocus);
-  });
-
-  return null;
 }
 
 export default function DrillingScene({ progressRef }: DrillingSceneProps) {
@@ -48,19 +26,12 @@ export default function DrillingScene({ progressRef }: DrillingSceneProps) {
         gl={{ antialias: true, alpha: true }}
         shadows
       >
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[5, 6, 5]} intensity={5} />
-        <directionalLight position={[-3, 1, 4]} intensity={1.7} />
-        <spotLight
-          position={[4, 5, 6]}
-          intensity={8}
-          angle={0.5}
-          penumbra={0.7}
-        />
-        <CameraFollow progressRef={progressRef} />
+        <SceneLighting progressRef={progressRef} />
+        <SceneCamera progressRef={progressRef} />
         <Ground progressRef={progressRef} />
         <TriconeBit progressRef={progressRef} />
-        <Environment preset="studio" />
+        {/* Local HDRI reflection environment - eliminates external CDN dependency */}
+        <Environment files="/environments/studio.hdr" />
       </Canvas>
     </div>
   );

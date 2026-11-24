@@ -24,6 +24,7 @@ export function getDrillingMotion(progress: number) {
   const approach = smoothStep(entry, 0.54, 0.66);
   const penetration = smoothStep(entry, 0.66, 1);
   const cameraBlend = smoothStep(entry, 0.51, 0.87);
+  const lightingBlend = smoothStep(entry, 0.48, 0.88);
 
   // The tool reaches the conceptual surface; the cutaway then travels up
   // around the cutting end to convey the progression through the subsurface.
@@ -35,6 +36,7 @@ export function getDrillingMotion(progress: number) {
     approach,
     penetration,
     cameraBlend,
+    lightingBlend,
     subsurface,
     bitY,
     terrainY,
