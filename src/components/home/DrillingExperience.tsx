@@ -6,7 +6,9 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 import Hero from "./Hero";
 import SubsurfaceChapter from "./SubsurfaceChapter";
+import StaticDrillingExperience from "./StaticDrillingExperience";
 import DrillingScene from "@/components/three/DrillingScene";
+import { useExperienceMode } from "@/hooks/useExperienceMode";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -14,6 +16,9 @@ const interval = (progress: number, start: number, end: number) =>
   Math.max(0, Math.min(1, (progress - start) / (end - start)));
 
 export default function DrillingExperience() {
+  const { profile, config, isCompact, isStatic, triggerFallback } =
+    useExperienceMode();
+
   const sectionRef = useRef<HTMLElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLDivElement>(null);
@@ -22,6 +27,9 @@ export default function DrillingExperience() {
   const progressRef = useRef(0);
 
   useEffect(() => {
+    // If user prefers reduced motion or WebGL is unavailable, static mode handles the layout
+    if (isStatic) return;
+
     const section = sectionRef.current;
     const hero = heroRef.current;
     const intro = introRef.current;
@@ -32,8 +40,7 @@ export default function DrillingExperience() {
     const update = (p: number) => {
       progressRef.current = p;
 
-      // The original entry occupies 72% of the longer shared timeline.
-      // Leave a brief gap between messages so headings never overlap.
+      // The entry choreography occupies the first 72% of the timeline.
       const heroOpacity = 1 - interval(p, 0.158, 0.259);
       const introOpacity =
         interval(p, 0.281, 0.368) * (1 - interval(p, 0.72, 0.795));
@@ -67,23 +74,38 @@ export default function DrillingExperience() {
       onUpdate: (self) => update(self.progress),
       onRefresh: (self) => update(self.progress),
     });
+
     update(trigger.progress);
 
-    return () => trigger.kill();
-  }, []);
+    return () => {
+      trigger.kill();
+    };
+  }, [isStatic, profile]);
+
+  // When reduced motion or fallback is requested, render clean accessible standard flow
+  if (isStatic) {
+    return <StaticDrillingExperience />;
+  }
 
   return (
     <section
       ref={sectionRef}
-      className="relative h-[430vh] bg-neutral-950 text-white"
+      style={{ height: config.timelineHeight }}
+      className="relative bg-neutral-950 text-white selection:bg-red-600 selection:text-white"
       aria-label="Experiencia de perforación"
     >
-      <div className="sticky top-0 h-screen overflow-hidden">
-        {/* Exactly one Canvas, shared from the hero through the descent. */}
+      <div className="sticky top-0 h-screen h-[100dvh] overflow-hidden">
+        {/* Exactly one persistent Canvas instance for immersive mode */}
         <div className="absolute inset-0">
-          <DrillingScene progressRef={progressRef} />
+          <DrillingScene
+            progressRef={progressRef}
+            isCompact={isCompact}
+            onWebGLError={triggerFallback}
+          />
         </div>
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black via-black/55 to-transparent" />
+
+        {/* Adaptive visual contrast gradient (vertical on mobile, horizontal on desktop) */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/65 to-transparent lg:bg-gradient-to-r lg:from-black lg:via-black/55 lg:to-transparent" />
 
         <div ref={heroRef} className="absolute inset-0 z-20">
           <Hero />
@@ -91,10 +113,11 @@ export default function DrillingExperience() {
 
         <div
           ref={introRef}
-          className="pointer-events-none invisible absolute inset-0 z-10 flex items-center"
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute inset-0 z-10 flex items-end pb-24 sm:items-center sm:pb-0"
         >
           <div className="mx-auto w-full max-w-7xl px-6 lg:px-10">
-            <h2 className="max-w-lg text-4xl font-black leading-tight md:text-5xl">
+            <h2 className="max-w-lg text-3xl font-black leading-tight sm:text-4xl md:text-5xl">
               Un pozo no comienza con la perforadora.
             </h2>
             <p
@@ -105,9 +128,11 @@ export default function DrillingExperience() {
             </p>
           </div>
         </div>
+
         <div
           ref={subsurfaceRef}
-          className="pointer-events-none invisible absolute inset-0 z-10 flex items-center"
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute inset-0 z-10 flex items-end pb-24 sm:items-center sm:pb-0"
         >
           <SubsurfaceChapter />
         </div>

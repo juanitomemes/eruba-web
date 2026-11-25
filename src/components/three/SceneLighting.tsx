@@ -8,6 +8,7 @@ import { getDrillingMotion } from "@/lib/drillingMotion";
 
 interface SceneLightingProps {
   progressRef: RefObject<number>;
+  isCompact?: boolean;
 }
 
 /**
@@ -16,7 +17,10 @@ interface SceneLightingProps {
  * - Subsurface Stage: Shifts gradually to directional, grazing illumination that accentuates
  *   the mineral relief and cavity depth while eliminating flat, washed-out shadows.
  */
-export default function SceneLighting({ progressRef }: SceneLightingProps) {
+export default function SceneLighting({
+  progressRef,
+  isCompact = false,
+}: SceneLightingProps) {
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const keyLightRef = useRef<THREE.DirectionalLight>(null);
   const fillLightRef = useRef<THREE.DirectionalLight>(null);
@@ -28,7 +32,6 @@ export default function SceneLighting({ progressRef }: SceneLightingProps) {
     const blend = motion.lightingBlend;
 
     // Ambient light: 0.8 (Hero) -> 0.46 (Subsurface)
-    // Decreasing ambient prevents washed-out terrain and heightens sculptural cavity depth.
     if (ambientRef.current) {
       ambientRef.current.intensity = THREE.MathUtils.lerp(0.8, 0.46, blend);
     }
@@ -49,11 +52,12 @@ export default function SceneLighting({ progressRef }: SceneLightingProps) {
     }
 
     // Raking / Grazing directional light: 0.0 (Hero) -> 2.4 (Subsurface)
-    // Low-angle grazing light catches the procedural mineral bump map and internal curved borehole wall.
     if (grazingLightRef.current) {
       grazingLightRef.current.intensity = THREE.MathUtils.lerp(0.0, 2.4, blend);
     }
   });
+
+  const shadowMapResolution = isCompact ? 512 : 1024;
 
   return (
     <>
@@ -67,7 +71,7 @@ export default function SceneLighting({ progressRef }: SceneLightingProps) {
         intensity={5}
         castShadow
         shadow-bias={-0.0004}
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[shadowMapResolution, shadowMapResolution]}
         shadow-camera-near={0.5}
         shadow-camera-far={25}
         shadow-camera-left={-7}
