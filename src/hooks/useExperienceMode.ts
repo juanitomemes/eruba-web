@@ -5,6 +5,7 @@ import {
   type ExperienceProfile,
   EXPERIENCE_PROFILES,
   checkWebGLSupport,
+  isWebGLSupportProbed,
 } from "@/lib/experienceProfiles";
 
 function subscribe(callback: () => void) {
@@ -16,12 +17,24 @@ function subscribe(callback: () => void) {
     "(prefers-reduced-motion: reduce)"
   );
 
+  // Prioritize accessibility: only probe WebGL2 if user does NOT prefer reduced motion
+  if (!reducedMotionQuery.matches) {
+    checkWebGLSupport();
+  }
+
+  const handlePreferenceChange = () => {
+    if (!reducedMotionQuery.matches) {
+      checkWebGLSupport();
+    }
+    callback();
+  };
+
   window.addEventListener("resize", callback, { passive: true });
-  reducedMotionQuery.addEventListener("change", callback);
+  reducedMotionQuery.addEventListener("change", handlePreferenceChange);
 
   return () => {
     window.removeEventListener("resize", callback);
-    reducedMotionQuery.removeEventListener("change", callback);
+    reducedMotionQuery.removeEventListener("change", handlePreferenceChange);
   };
 }
 
@@ -30,13 +43,14 @@ function getSnapshot(): ExperienceProfile {
     return "desktop";
   }
 
-  // 1. WebGL support check
-  if (!checkWebGLSupport()) {
+  // 1. Accessibility priority: check reduced motion first without GPU probing
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     return "static";
   }
 
-  // 2. Reduced motion check
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  // 2. Pure cached read: never allocate probe context inside getSnapshot
+  // If already probed and unsupported, fall back to static
+  if (isWebGLSupportProbed() && !checkWebGLSupport()) {
     return "static";
   }
 
@@ -74,6 +88,7 @@ export function useExperienceMode() {
     isDesktop: profile === "desktop",
     isCompact: profile === "compact",
     isStatic: profile === "static",
+    manualFallback,
     triggerFallback,
   };
 }

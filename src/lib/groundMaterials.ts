@@ -168,21 +168,6 @@ export function createGroundTextures(): GroundTextures | null {
   return { albedoTexture, bumpTexture };
 }
 
-// Backwards-compatible standalone helpers
-export function createGroundBumpTexture(): THREE.CanvasTexture | null {
-  const textures = createGroundTextures();
-  if (!textures) return null;
-  textures.albedoTexture.dispose();
-  return textures.bumpTexture;
-}
-
-export function createGroundAlbedoTexture(): THREE.CanvasTexture | null {
-  const textures = createGroundTextures();
-  if (!textures) return null;
-  textures.bumpTexture.dispose();
-  return textures.albedoTexture;
-}
-
 export const GROUND_MATERIAL_CONFIG = {
   roughness: 0.92,
   metalness: 0.0,

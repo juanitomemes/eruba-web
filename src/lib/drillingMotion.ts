@@ -16,7 +16,22 @@ export const BOREHOLE_X = 2.6;
 // the remaining scroll distance belongs to the subsurface chapter.
 export const ENTRY_END = 0.72;
 
-export function getDrillingMotion(progress: number) {
+export interface DrillingMotion {
+  groundReveal: number;
+  approach: number;
+  penetration: number;
+  cameraBlend: number;
+  lightingBlend: number;
+  subsurface: number;
+  bitY: number;
+  terrainY: number;
+  scrollRotation: number;
+}
+
+let lastProgress = -1;
+let cachedMotion: DrillingMotion | null = null;
+
+function computeDrillingMotion(progress: number): DrillingMotion {
   const entry = clamp01(progress / ENTRY_END);
   const subsurface = smoothStep(progress, 0.72, 1);
 
@@ -43,4 +58,19 @@ export function getDrillingMotion(progress: number) {
     scrollRotation:
       smoothStep(entry, 0.55, 1) * Math.PI * 4 + subsurface * Math.PI * 2,
   };
+}
+
+/**
+ * Returns the drilling motion curves for a given progress.
+ * Caches the last computed frame to avoid duplicate calculations across
+ * SceneCamera, SceneLighting, Ground, and TriconeBit within the same frame.
+ * Output is frozen and read-only to prevent accidental consumer mutation.
+ */
+export function getDrillingMotion(progress: number): Readonly<DrillingMotion> {
+  if (progress === lastProgress && cachedMotion !== null) {
+    return cachedMotion;
+  }
+  lastProgress = progress;
+  cachedMotion = Object.freeze(computeDrillingMotion(progress));
+  return cachedMotion;
 }

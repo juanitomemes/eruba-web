@@ -3,7 +3,7 @@
 import type { RefObject } from "react";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { getDrillingMotion } from "@/lib/drillingMotion";
 
@@ -12,11 +12,11 @@ interface TriconeBitProps {
 }
 
 export default function TriconeBit({ progressRef }: TriconeBitProps) {
-  const { scene } = useGLTF("/models/tricone-bit.glb");
+  const { scene } = useGLTF("/models/tricone-bit.optimized.glb");
   const groupRef = useRef<THREE.Group>(null);
   const ambientAngleRef = useRef(0);
 
-  const normalizedScene = useMemo(() => {
+  const { normalizedScene, steelMaterial } = useMemo(() => {
     const model = scene.clone(true);
     const steel = new THREE.MeshStandardMaterial({
       color: new THREE.Color("#55585b"),
@@ -42,8 +42,15 @@ export default function TriconeBit({ progressRef }: TriconeBitProps) {
     const scale = maxDimension > 0 ? 3 / maxDimension : 1;
     model.scale.setScalar(scale);
     model.position.copy(center).multiplyScalar(-scale);
-    return model;
+    return { normalizedScene: model, steelMaterial: steel };
   }, [scene]);
+
+  useEffect(() => {
+    return () => {
+      // Safely dispose component-owned material without affecting loader-cached geometries
+      steelMaterial.dispose();
+    };
+  }, [steelMaterial]);
 
   useFrame((_, delta) => {
     const group = groupRef.current;
@@ -68,5 +75,3 @@ export default function TriconeBit({ progressRef }: TriconeBitProps) {
     </group>
   );
 }
-
-useGLTF.preload("/models/tricone-bit.glb");

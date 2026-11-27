@@ -29,10 +29,12 @@ export default function Ground({ progressRef }: GroundProps) {
 
   useEffect(() => {
     return () => {
+      // Manually created in-memory geometries and procedural textures are component-owned
       geometry.dispose();
       striations.dispose();
       textures?.albedoTexture.dispose();
       textures?.bumpTexture.dispose();
+      // Declarative JSX materials (materialRef, lineMaterialRef) are owned and unmounted by R3F reconciler
     };
   }, [geometry, striations, textures]);
 

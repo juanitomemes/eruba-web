@@ -1,6 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Navbar from "@/components/layouts/Navbar";
+
+interface StaticDrillingExperienceProps {
+  autoFocusHeading?: boolean;
+}
 
 /**
  * Accessible, static fallback experience for Eru-BA Drilling Consulting.
@@ -10,13 +15,23 @@ import Navbar from "@/components/layouts/Navbar";
  *
  * Provides the complete narrative roadmap in standard document flow without 3D canvas locks.
  */
-export default function StaticDrillingExperience() {
+export default function StaticDrillingExperience({
+  autoFocusHeading = false,
+}: StaticDrillingExperienceProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (autoFocusHeading) {
+      headingRef.current?.focus();
+    }
+  }, [autoFocusHeading]);
+
   return (
     <div className="relative min-h-screen bg-neutral-950 text-white selection:bg-red-600 selection:text-white">
       {/* Top corporate navigation */}
       <Navbar />
 
-      <main>
+      <div className="relative">
         {/* Chapter 01: Hero */}
         <section
           aria-labelledby="hero-heading"
@@ -30,8 +45,10 @@ export default function StaticDrillingExperience() {
               <div className="mb-6 h-[2px] w-12 bg-red-600" />
 
               <h1
+                ref={headingRef}
                 id="hero-heading"
-                className="text-3xl font-black leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl"
+                tabIndex={-1}
+                className="outline-none text-3xl font-black leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl"
               >
                 Calidad e Ingeniería en{" "}
                 <span className="text-white">
@@ -127,7 +144,7 @@ export default function StaticDrillingExperience() {
             </div>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

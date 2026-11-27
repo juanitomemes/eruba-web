@@ -14,11 +14,14 @@ interface SceneCameraProps {
 /**
  * Camera controller for the Drilling Experience:
  * - Desktop: Exact approved camera positions ([4, 2.2, 6] Hero, [3.35, 0.55, 9] Section).
- * - Compact / Mobile: Adapts framing based on portrait aspect ratio (w/h < 1.0),
- *   framing the 3D model in the upper visual field to leave room for text without overlap or clipping.
+ * - Compact / Mobile Portrait: Frames 3D model in upper visual field so bottom text doesn't overlap.
+ * - Compact Landscape: Adapts vertical scale so model remains visible without clipping in short viewports.
  * - Architecture: Encapsulates all mutable vectors inside component-owned refs.
  */
-export default function SceneCamera({ progressRef }: SceneCameraProps) {
+export default function SceneCamera({
+  progressRef,
+  isCompact = false,
+}: SceneCameraProps) {
   const { camera, size } = useThree();
 
   const heroPosition = useRef(new THREE.Vector3());
@@ -36,11 +39,23 @@ export default function SceneCamera({ progressRef }: SceneCameraProps) {
 
     const aspect = size.width / Math.max(1, size.height);
     const isPortrait = aspect < 1.0;
+    const useCompactFraming = isCompact || isPortrait;
 
-    if (isPortrait) {
-      // Compact/Mobile: Adjust camera distance and focal point for narrow vertical viewports
+    if (!useCompactFraming) {
+      // Desktop: Exact approved framing preserving left-hand text space and right-hand 3D stage
+      heroPosition.current.set(4, 2.2, 6);
+      heroFocus.current.set(0, 0, 0);
+
+      sectionPosition.current.set(
+        3.35,
+        0.55 - 0.12 * subsurface,
+        9 + 0.15 * subsurface
+      );
+      sectionFocus.current.set(0.65, -0.76 - 0.16 * subsurface, -0.4);
+    } else if (isPortrait) {
+      // Compact/Mobile Portrait: Narrow vertical viewports
       // Place the 3D object in the upper half of the screen
-      const zoomFactor = Math.min(1.4, Math.max(1.0, 0.9 / aspect));
+      const zoomFactor = Math.min(1.45, Math.max(1.0, 0.92 / aspect));
 
       heroPosition.current.set(2.6, 2.1, 6.8 * zoomFactor);
       heroFocus.current.set(2.0, 0.25, 0);
@@ -52,12 +67,22 @@ export default function SceneCamera({ progressRef }: SceneCameraProps) {
       );
       sectionFocus.current.set(1.9, -0.65 - 0.18 * subsurface, -0.4);
     } else {
-      // Desktop: Exact approved framing preserving left-hand text space and right-hand 3D stage
-      heroPosition.current.set(4, 2.2, 6);
-      heroFocus.current.set(0, 0, 0);
+      // Compact Landscape (e.g. mobile rotated 844x390, small landscape tablets)
+      // Height is constrained; pull back slightly and frame cleanly without clipping
+      const heightFactor = Math.min(
+        1.35,
+        Math.max(1.0, 520 / Math.max(size.height, 300))
+      );
 
-      sectionPosition.current.set(3.35, 0.55 - 0.12 * subsurface, 9 + 0.15 * subsurface);
-      sectionFocus.current.set(0.65, -0.76 - 0.16 * subsurface, -0.4);
+      heroPosition.current.set(3.8, 1.8, 6.5 * heightFactor);
+      heroFocus.current.set(1.2, 0.1, 0);
+
+      sectionPosition.current.set(
+        3.1,
+        0.5 - 0.1 * subsurface,
+        8.5 * heightFactor + 0.15 * subsurface
+      );
+      sectionFocus.current.set(1.0, -0.7 - 0.15 * subsurface, -0.4);
     }
 
     currentPosition.current.lerpVectors(

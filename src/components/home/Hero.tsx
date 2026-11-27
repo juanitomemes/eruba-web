@@ -30,7 +30,7 @@ export default function Hero() {
 
           <p className="mt-6 max-w-lg text-base leading-relaxed text-neutral-300 md:text-lg">
             Experiencia técnica, ingeniería y seguridad aplicadas a proyectos
-            de perforación de pozos de agua.
+            de perforación de pozos de agua en México.
           </p>
 
           <div className="mt-8 flex flex-col gap-3.5 sm:flex-row sm:items-center">

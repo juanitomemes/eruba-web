@@ -11,7 +11,7 @@ export default function SubsurfaceChapter() {
         </h2>
         <p className="mt-6 max-w-md text-base leading-relaxed text-neutral-300 md:text-lg">
           Comprender lo que ocurre durante la perforación permite tomar
-          mejores decisiones en cada etapa.
+          mejores decisiones en cada etapa de la obra.
         </p>
         <p className="mt-8 max-w-md text-xs leading-relaxed text-neutral-500">
           Visualización conceptual del subsuelo; no representa una formación
