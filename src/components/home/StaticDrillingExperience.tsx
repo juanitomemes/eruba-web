@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Navbar from "@/components/layouts/Navbar";
+import { DRILLING_CONTENT } from "@/lib/drillingContent";
 
 interface StaticDrillingExperienceProps {
   autoFocusHeading?: boolean;
@@ -19,6 +20,7 @@ export default function StaticDrillingExperience({
   autoFocusHeading = false,
 }: StaticDrillingExperienceProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const { hero, intro, subsurface, engineering } = DRILLING_CONTENT;
 
   useEffect(() => {
     if (autoFocusHeading) {
@@ -40,7 +42,7 @@ export default function StaticDrillingExperience({
           <div className="mx-auto w-full max-w-7xl">
             <div className="max-w-3xl">
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-neutral-400 md:text-sm">
-                Ingeniería que llega más profundo
+                {hero.eyebrow}
               </p>
               <div className="mb-6 h-[2px] w-12 bg-red-600" />
 
@@ -50,15 +52,14 @@ export default function StaticDrillingExperience({
                 tabIndex={-1}
                 className="outline-none text-3xl font-black leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl"
               >
-                Calidad e Ingeniería en{" "}
+                {hero.title}{" "}
                 <span className="text-white">
-                  Perforación de Pozos de Agua Profundos.
+                  {hero.titleHighlight}
                 </span>
               </h1>
 
               <p className="mt-6 max-w-xl text-base leading-relaxed text-neutral-300 md:text-lg">
-                Experiencia técnica, ingeniería y seguridad aplicadas a proyectos
-                de perforación de pozos de agua en México.
+                {hero.body}
               </p>
 
               <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -66,13 +67,13 @@ export default function StaticDrillingExperience({
                   href="#experiencia"
                   className="inline-flex items-center justify-center bg-red-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
                 >
-                  Conocer Eru-BA
+                  {hero.ctaPrimary}
                 </a>
                 <a
                   href="#contacto"
                   className="inline-flex items-center justify-center border border-white/30 px-6 py-3.5 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
                 >
-                  Hablemos de un proyecto
+                  {hero.ctaSecondary}
                 </a>
               </div>
             </div>
@@ -88,7 +89,7 @@ export default function StaticDrillingExperience({
           <div className="mx-auto w-full max-w-7xl">
             <div className="max-w-2xl">
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-neutral-400 md:text-sm">
-                02 / Filosofía de perforación
+                {intro.eyebrow}
               </p>
               <div className="mb-6 h-[2px] w-12 bg-red-600" />
 
@@ -96,15 +97,13 @@ export default function StaticDrillingExperience({
                 id="intro-heading"
                 className="text-3xl font-black leading-tight sm:text-4xl md:text-5xl"
               >
-                Un pozo no comienza con la perforadora.
+                {intro.headline}
               </h2>
               <p className="mt-4 text-2xl font-bold text-red-500 md:text-3xl">
-                Comienza con ingeniería.
+                {intro.conclusion}
               </p>
               <p className="mt-6 text-base leading-relaxed text-neutral-300 md:text-lg">
-                El éxito y longevidad de una obra subterránea dependen del análisis
-                hidrogeológico previo, la selección adecuada del tren de perforación
-                y un control riguroso de cada parámetro operativo.
+                {intro.body}
               </p>
             </div>
           </div>
@@ -118,7 +117,7 @@ export default function StaticDrillingExperience({
           <div className="mx-auto w-full max-w-7xl">
             <div className="max-w-2xl">
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-neutral-400 md:text-sm">
-                03 / El subsuelo
+                {subsurface.eyebrow}
               </p>
               <div className="mb-6 h-[2px] w-12 bg-red-600" />
 
@@ -126,20 +125,64 @@ export default function StaticDrillingExperience({
                 id="subsurface-heading"
                 className="text-3xl font-black leading-tight text-white sm:text-4xl md:text-5xl"
               >
-                Cada proyecto presenta condiciones diferentes.
+                {subsurface.headline}
               </h2>
 
               <p className="mt-6 text-base leading-relaxed text-neutral-300 md:text-lg">
-                Comprender lo que ocurre durante la perforación permite tomar
-                mejores decisiones en cada etapa de la obra.
+                {subsurface.body}
               </p>
 
               <div className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900/50 p-6">
                 <p className="text-xs leading-relaxed text-neutral-400">
                   <strong className="text-neutral-300">Nota técnica:</strong>{" "}
-                  Visualización conceptual de la interacción de perforación; no
-                  representa una formación litológica ni un proyecto específico.
+                  {subsurface.technicalDisclaimer}
                 </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Chapter 04: Ingeniería aplicada */}
+        <section
+          aria-labelledby="engineering-heading"
+          className="border-t border-neutral-800/80 bg-neutral-900/40 px-6 py-24 lg:px-10"
+        >
+          <div className="mx-auto w-full max-w-7xl">
+            <div className="max-w-3xl">
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-neutral-400 md:text-sm">
+                {engineering.eyebrow}
+              </p>
+              <div className="mb-6 h-[2px] w-12 bg-red-600" />
+
+              <h2
+                id="engineering-heading"
+                className="text-3xl font-black leading-tight text-white sm:text-4xl md:text-5xl"
+              >
+                {engineering.headline}
+              </h2>
+
+              <p className="mt-6 text-base leading-relaxed text-neutral-300 md:text-lg">
+                {engineering.body}
+              </p>
+
+              {/* Four pillars of engineering */}
+              <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                {engineering.pillars.map((pillar) => (
+                  <div
+                    key={pillar.id}
+                    className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-6 transition-colors hover:border-neutral-700"
+                  >
+                    <div className="mb-3 flex items-center gap-3">
+                      <span className="h-2 w-2 rounded-full bg-red-600" />
+                      <h3 className="text-lg font-bold text-white">
+                        {pillar.title}
+                      </h3>
+                    </div>
+                    <p className="text-sm leading-relaxed text-neutral-400">
+                      {pillar.description}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

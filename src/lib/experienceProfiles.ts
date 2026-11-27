@@ -21,7 +21,7 @@ export const EXPERIENCE_PROFILES: Record<ExperienceProfile, ProfileConfig> = {
     simplify3D: false,
     dprCap: 1.75,
     enableShadows: true,
-    timelineHeight: "430vh",
+    timelineHeight: "550vh",
   },
   compact: {
     name: "compact",
@@ -29,7 +29,7 @@ export const EXPERIENCE_PROFILES: Record<ExperienceProfile, ProfileConfig> = {
     simplify3D: true,
     dprCap: 1.25,
     enableShadows: true,
-    timelineHeight: "380vh",
+    timelineHeight: "480vh",
   },
   static: {
     name: "static",

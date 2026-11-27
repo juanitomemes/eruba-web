@@ -7,8 +7,15 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 import Hero from "./Hero";
 import SubsurfaceChapter from "./SubsurfaceChapter";
+import EngineeringChapter from "./EngineeringChapter";
 import StaticDrillingExperience from "./StaticDrillingExperience";
 import { useExperienceMode } from "@/hooks/useExperienceMode";
+import {
+  ChapterId,
+  getActiveChapter,
+  getLegacyProgress,
+  getChapterVisibility,
+} from "@/lib/drillingTimeline";
 
 const DrillingScene = dynamic(
   () => import("@/components/three/DrillingScene"),
@@ -21,11 +28,6 @@ const DrillingScene = dynamic(
 );
 
 gsap.registerPlugin(ScrollTrigger);
-
-const interval = (progress: number, start: number, end: number) =>
-  Math.max(0, Math.min(1, (progress - start) / (end - start)));
-
-type NarrativeChapter = "hero" | "intro" | "subsurface";
 
 export default function DrillingExperience() {
   const {
@@ -43,8 +45,9 @@ export default function DrillingExperience() {
   const introRef = useRef<HTMLDivElement>(null);
   const conclusionRef = useRef<HTMLParagraphElement>(null);
   const subsurfaceRef = useRef<HTMLDivElement>(null);
+  const engineeringRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef(0);
-  const activeChapterRef = useRef<NarrativeChapter>("hero");
+  const activeChapterRef = useRef<ChapterId>("hero");
 
   useEffect(() => {
     setHasMounted(true);
@@ -59,9 +62,11 @@ export default function DrillingExperience() {
     const intro = introRef.current;
     const conclusion = conclusionRef.current;
     const subsurface = subsurfaceRef.current;
-    if (!section || !hero || !intro || !conclusion || !subsurface) return;
+    const engineering = engineeringRef.current;
+    if (!section || !hero || !intro || !conclusion || !subsurface || !engineering)
+      return;
 
-    const setChapterAccessibility = (chapter: NarrativeChapter) => {
+    const setChapterAccessibility = (chapter: ChapterId) => {
       const applyState = (el: HTMLElement | null, isActive: boolean) => {
         if (!el) return;
         if (isActive) {
@@ -79,11 +84,12 @@ export default function DrillingExperience() {
       applyState(hero, chapter === "hero");
       applyState(intro, chapter === "intro");
       applyState(subsurface, chapter === "subsurface");
+      applyState(engineering, chapter === "engineering");
     };
 
     // Reconcile accessibility state when focus moves out of an inactive chapter
     const handleFocusOut =
-      (chapter: NarrativeChapter, el: HTMLElement) => (e: FocusEvent) => {
+      (chapter: ChapterId, el: HTMLElement) => (e: FocusEvent) => {
         if (activeChapterRef.current !== chapter) {
           const nextTarget = e.relatedTarget as Node | null;
           if (!nextTarget || !el.contains(nextTarget)) {
@@ -96,50 +102,48 @@ export default function DrillingExperience() {
     const heroFocusOut = handleFocusOut("hero", hero);
     const introFocusOut = handleFocusOut("intro", intro);
     const subsurfaceFocusOut = handleFocusOut("subsurface", subsurface);
+    const engineeringFocusOut = handleFocusOut("engineering", engineering);
 
     hero.addEventListener("focusout", heroFocusOut);
     intro.addEventListener("focusout", introFocusOut);
     subsurface.addEventListener("focusout", subsurfaceFocusOut);
+    engineering.addEventListener("focusout", engineeringFocusOut);
 
-    const update = (p: number) => {
-      progressRef.current = p;
+    const update = (globalProgress: number) => {
+      // 3D scene receives remapped legacy progress [0, 1] clamped at 1.0 when entering chapter 04
+      const legacyProgress = getLegacyProgress(globalProgress);
+      progressRef.current = legacyProgress;
 
-      // The entry choreography occupies the first 72% of the timeline.
-      const heroOpacity = 1 - interval(p, 0.158, 0.259);
-      const introOpacity =
-        interval(p, 0.281, 0.368) * (1 - interval(p, 0.72, 0.795));
-      const conclusionOpacity = interval(p, 0.468, 0.562) * introOpacity;
-      const subsurfaceOpacity = interval(p, 0.795, 0.875);
+      // Centralized narrative visibility computation
+      const visibility = getChapterVisibility(globalProgress);
 
       // Determine active narrative chapter only crossing state boundaries
-      let targetChapter: NarrativeChapter = "hero";
-      if (p >= 0.76) {
-        targetChapter = "subsurface";
-      } else if (p >= 0.26) {
-        targetChapter = "intro";
-      }
-
+      const targetChapter = getActiveChapter(globalProgress);
       if (targetChapter !== activeChapterRef.current) {
         activeChapterRef.current = targetChapter;
         setChapterAccessibility(targetChapter);
       }
 
       gsap.set(hero, {
-        autoAlpha: heroOpacity,
-        y: -22 * (1 - heroOpacity),
-        pointerEvents: heroOpacity > 0.5 ? "auto" : "none",
+        autoAlpha: visibility.heroOpacity,
+        y: -22 * (1 - visibility.heroOpacity),
+        pointerEvents: visibility.heroOpacity > 0.5 ? "auto" : "none",
       });
       gsap.set(intro, {
-        autoAlpha: introOpacity,
-        y: 25 * (1 - introOpacity),
+        autoAlpha: visibility.introOpacity,
+        y: 25 * (1 - visibility.introOpacity),
       });
       gsap.set(conclusion, {
-        autoAlpha: conclusionOpacity,
-        y: 16 * (1 - conclusionOpacity),
+        autoAlpha: visibility.conclusionOpacity,
+        y: 16 * (1 - visibility.conclusionOpacity),
       });
       gsap.set(subsurface, {
-        autoAlpha: subsurfaceOpacity,
-        y: 25 * (1 - subsurfaceOpacity),
+        autoAlpha: visibility.subsurfaceOpacity,
+        y: 25 * (1 - visibility.subsurfaceOpacity),
+      });
+      gsap.set(engineering, {
+        autoAlpha: visibility.engineeringOpacity,
+        y: 25 * (1 - visibility.engineeringOpacity),
       });
     };
 
@@ -154,12 +158,7 @@ export default function DrillingExperience() {
 
     // Synchronize initial chapter accessibility directly from actual trigger progress
     const initialProgress = trigger.progress;
-    let initialChapter: NarrativeChapter = "hero";
-    if (initialProgress >= 0.76) {
-      initialChapter = "subsurface";
-    } else if (initialProgress >= 0.26) {
-      initialChapter = "intro";
-    }
+    const initialChapter = getActiveChapter(initialProgress);
     activeChapterRef.current = initialChapter;
     setChapterAccessibility(initialChapter);
 
@@ -170,6 +169,7 @@ export default function DrillingExperience() {
       hero.removeEventListener("focusout", heroFocusOut);
       intro.removeEventListener("focusout", introFocusOut);
       subsurface.removeEventListener("focusout", subsurfaceFocusOut);
+      engineering.removeEventListener("focusout", engineeringFocusOut);
     };
   }, [isStatic, profile]);
 
@@ -235,6 +235,13 @@ export default function DrillingExperience() {
           className="pointer-events-none invisible absolute inset-0 z-10 flex items-end pb-24 sm:items-center sm:pb-0"
         >
           <SubsurfaceChapter />
+        </div>
+
+        <div
+          ref={engineeringRef}
+          className="pointer-events-none invisible absolute inset-0 z-10 flex items-end pb-24 sm:items-center sm:pb-0"
+        >
+          <EngineeringChapter />
         </div>
       </div>
     </section>
