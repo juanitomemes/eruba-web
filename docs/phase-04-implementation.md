@@ -96,7 +96,57 @@ Los activos 3D maestros y optimizados se mantienen protegidos e inalterados:
 
 ---
 
-## 7. Puntos de Extensión para Sprint 04.2
+## 7. Sistema de Anotaciones Técnicas Tridimensionales (Sprint 04.2)
 
-- **Etiquetas Técnicas en Escena 3D:** Conectar callouts SVG/HTML orientados a las zonas clave de la barrena y el estrato cortado cuando $p_{\text{engineering}} \in [0.2, 0.8]$.
-- **Diagramas de Flujo Operativo:** Integrar esquemas visuales livianos de los cuatro pilares sin aumentar la carga poligonal ni crear nuevos Canvas WebGL.
+En el Sprint 04.2 se incorporó la visualización de los cuatro pilares de ingeniería aplicada conectando conceptos editoriales con zonas visuales conceptuales de la escena tridimensional:
+
+```mermaid
+flowchart TD
+    Scroll["ScrollTrigger (globalProgress)"] --> EngProg["getEngineeringProgress(globalProgress) -> engineeringProgressRef"]
+    Camera["SceneCamera (Encuadre estático final)"] --> Bridge["SceneAnnotationBridge (useFrame en Canvas)"]
+    Bridge -->|Vector3.project(camera) -> 2D pixels| CoordsRef["projectedCoordsRef (MutableRefObject)"]
+    
+    EngProg --> Overlay["EngineeringOverlay.tsx"]
+    CoordsRef --> Overlay
+    
+    Overlay -->|aria-hidden SVG| Lines["Líneas de conexión y puntos de anclaje (Desk)"]
+    Overlay -->|Semantic HTML (h3 + p)| DesktopCards["Tarjetas de callout (Desktop)"]
+    Overlay -->|Semantic HTML (h3 + p)| MobileGrid["Cuadrícula técnica compacta (Mobile)"]
+```
+
+### 7.1. Definición de Anclajes Conceptuales 3D (`src/lib/engineeringAnnotations.ts`)
+Los anclajes representan **relaciones visuales ilustrativas** con las zonas escénicas de la barrena y el corte litológico, sin simular sensores físicos ni datos operativos inventados:
+1. **01. Planeación (`planning`):** `[2.60, 0.35, 0.00]` (Collar superior / Criterios de diseño y estrategia).
+2. **02. Análisis (`analysis`):** `[1.45, -0.15, 0.45]` (Frente de corte estratigráfico / Condiciones litológicas).
+3. **03. Control (`control`):** `[2.85, -0.55, -0.15]` (Estructura de conos cortadores / Seguimiento de parámetros).
+4. **04. Supervisión (`supervision`):** `[1.75, -1.05, 0.35]` (Profundidad de avance / Supervisión técnica).
+
+### 7.2. Estrategia de Proyección de Coordenadas (`SceneAnnotationBridge.tsx`)
+- Ejecución dentro del ciclo `useFrame` de React Three Fiber aprovechando la cámara y dimensiones activas (`useThree`).
+- Conversión de espacio de mundo a Normalized Device Coordinates (NDC) mediante `Vector3.project(camera)`.
+- Transformación de NDC a píxeles locales del Canvas:
+  $$x_{\text{screen}} = \frac{x_{\text{ndc}} + 1}{2} \cdot \text{width}$$
+  $$y_{\text{screen}} = \frac{1 - y_{\text{ndc}}}{2} \cdot \text{height}$$
+- Detección estricta de puntos detrás del plano de la cámara ($-1 \le z_{\text{ndc}} \le 1$).
+- Reutilización de un único `THREE.Vector3` por frame para evitar recolección de basura (*zero heap allocations*).
+- Desactivación de cálculos de proyección fuera del capítulo de ingeniería mientras las dimensiones no cambien.
+
+### 7.3. Intervalos de Revelado Progresivo ($p_{\text{engineering}} \in [0, 1]$)
+- **01. Planeación:** `0.20` a `0.30`
+- **02. Análisis:** `0.35` a `0.45`
+- **03. Control:** `0.50` a `0.60`
+- **04. Supervisión:** `0.65` a `0.75`
+- **Estado Estable:** A partir de $p_{\text{engineering}} \ge 0.75$, los cuatro pilares permanecen 100% visibles y legibles hasta el final del scroll, preparándose para la futura transición al Capítulo 05.
+
+### 7.4. Adaptación Responsive y Accesibilidad
+1. **Desktop ($W \ge 1024\text{px}$):** Líneas de conexión SVG delgadas con efecto stepped/quebrado, puntos de anclaje con acento rojo corporativo (`#dc2626`) y tarjetas de callout con estilo sobrio de ingeniería industrial.
+2. **Compact Portrait ($W < 1024\text{px}$):** Para evitar saturación visual y sobreposición en pantallas móviles, las líneas SVG se ocultan y los cuatro pilares se despliegan en una cuadrícula técnica 2x2 en la sección inferior de contenido, revelándose progresivamente en sincronía con el scroll.
+3. **Compact Landscape ($H \le 500\text{px}$):** Composición compacta que previene recortes verticales.
+4. **Static Fallback:** Cero Canvas, paridad semántica completa con los cuatro pilares renderizados en flujo documental estándar.
+
+---
+
+## 8. Limitaciones Conocidas y Puntos de Extensión
+
+- **Límites de pantalla en resoluciones no estándar:** El pulido fino de offsets para monitores ultra-wide o pantallas atípicas está previsto para el Sprint 04.3.
+- **Preparación para Capítulo 05:** La salida del Capítulo 04 (`engineeringExit`) está reservada en $p_{\text{global}} = 1.0$ para conectarse con la apertura del capítulo de Servicios.

@@ -8,14 +8,22 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Hero from "./Hero";
 import SubsurfaceChapter from "./SubsurfaceChapter";
 import EngineeringChapter from "./EngineeringChapter";
+import EngineeringOverlay, {
+  type EngineeringOverlayHandle,
+} from "./EngineeringOverlay";
 import StaticDrillingExperience from "./StaticDrillingExperience";
 import { useExperienceMode } from "@/hooks/useExperienceMode";
 import {
   ChapterId,
   getActiveChapter,
   getLegacyProgress,
+  getEngineeringProgress,
   getChapterVisibility,
 } from "@/lib/drillingTimeline";
+import {
+  type ProjectedAnnotationsMap,
+  createDefaultProjectedMap,
+} from "@/lib/engineeringAnnotations";
 
 const DrillingScene = dynamic(
   () => import("@/components/three/DrillingScene"),
@@ -46,7 +54,14 @@ export default function DrillingExperience() {
   const conclusionRef = useRef<HTMLParagraphElement>(null);
   const subsurfaceRef = useRef<HTMLDivElement>(null);
   const engineeringRef = useRef<HTMLDivElement>(null);
+
+  // Motion and timeline progress refs
   const progressRef = useRef(0);
+  const engineeringProgressRef = useRef(0);
+  const projectedCoordsRef = useRef<ProjectedAnnotationsMap>(
+    createDefaultProjectedMap()
+  );
+  const overlayRef = useRef<EngineeringOverlayHandle>(null);
   const activeChapterRef = useRef<ChapterId>("hero");
 
   useEffect(() => {
@@ -63,7 +78,14 @@ export default function DrillingExperience() {
     const conclusion = conclusionRef.current;
     const subsurface = subsurfaceRef.current;
     const engineering = engineeringRef.current;
-    if (!section || !hero || !intro || !conclusion || !subsurface || !engineering)
+    if (
+      !section ||
+      !hero ||
+      !intro ||
+      !conclusion ||
+      !subsurface ||
+      !engineering
+    )
       return;
 
     const setChapterAccessibility = (chapter: ChapterId) => {
@@ -113,6 +135,16 @@ export default function DrillingExperience() {
       // 3D scene receives remapped legacy progress [0, 1] clamped at 1.0 when entering chapter 04
       const legacyProgress = getLegacyProgress(globalProgress);
       progressRef.current = legacyProgress;
+
+      // Chapter 04 local engineering progress [0, 1]
+      const engineeringProgress = getEngineeringProgress(globalProgress);
+      engineeringProgressRef.current = engineeringProgress;
+
+      // Update technical annotations overlay without React state overhead
+      overlayRef.current?.update(
+        engineeringProgress,
+        projectedCoordsRef.current
+      );
 
       // Centralized narrative visibility computation
       const visibility = getChapterVisibility(globalProgress);
@@ -178,6 +210,13 @@ export default function DrillingExperience() {
     return <StaticDrillingExperience autoFocusHeading={manualFallback} />;
   }
 
+  const handleProjectionUpdate = () => {
+    overlayRef.current?.update(
+      engineeringProgressRef.current,
+      projectedCoordsRef.current
+    );
+  };
+
   return (
     <section
       ref={sectionRef}
@@ -200,6 +239,9 @@ export default function DrillingExperience() {
           {hasMounted && !isStatic && (
             <DrillingScene
               progressRef={progressRef}
+              engineeringProgressRef={engineeringProgressRef}
+              projectedCoordsRef={projectedCoordsRef}
+              onProjectionUpdate={handleProjectionUpdate}
               isCompact={isCompact}
               onWebGLError={triggerFallback}
             />
@@ -239,9 +281,15 @@ export default function DrillingExperience() {
 
         <div
           ref={engineeringRef}
-          className="pointer-events-none invisible absolute inset-0 z-10 flex items-end pb-24 sm:items-center sm:pb-0"
+          className="pointer-events-none invisible absolute inset-0 z-10"
         >
-          <EngineeringChapter />
+          {/* Main narrative text container */}
+          <div className="flex h-full w-full items-end pb-24 sm:items-center sm:pb-0">
+            <EngineeringChapter />
+          </div>
+
+          {/* Technical annotations overlay with SVG lines and HTML callout cards */}
+          <EngineeringOverlay ref={overlayRef} isCompact={isCompact} />
         </div>
       </div>
     </section>

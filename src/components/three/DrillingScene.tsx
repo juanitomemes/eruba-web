@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense, type RefObject } from "react";
+import { useEffect, useState, Suspense, type RefObject, type MutableRefObject } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import TriconeBit from "./TriconeBit";
@@ -8,9 +8,14 @@ import Ground from "./Ground";
 import SceneLighting from "./SceneLighting";
 import SceneCamera from "./SceneCamera";
 import SceneErrorBoundary from "./SceneErrorBoundary";
+import SceneAnnotationBridge from "./SceneAnnotationBridge";
+import type { ProjectedAnnotationsMap } from "@/lib/engineeringAnnotations";
 
 interface DrillingSceneProps {
   progressRef: RefObject<number>;
+  engineeringProgressRef?: RefObject<number>;
+  projectedCoordsRef?: MutableRefObject<ProjectedAnnotationsMap>;
+  onProjectionUpdate?: () => void;
   isCompact?: boolean;
   onWebGLError?: (error: Error) => void;
 }
@@ -54,6 +59,9 @@ function WebGLContextWatcher({
 
 export default function DrillingScene({
   progressRef,
+  engineeringProgressRef,
+  projectedCoordsRef,
+  onProjectionUpdate,
   isCompact = false,
   onWebGLError,
 }: DrillingSceneProps) {
@@ -93,6 +101,13 @@ export default function DrillingScene({
           <WebGLContextWatcher onWebGLError={onWebGLError} />
           <SceneLighting progressRef={progressRef} isCompact={isCompact} />
           <SceneCamera progressRef={progressRef} isCompact={isCompact} />
+          {engineeringProgressRef && projectedCoordsRef && (
+            <SceneAnnotationBridge
+              engineeringProgressRef={engineeringProgressRef}
+              projectedCoordsRef={projectedCoordsRef}
+              onProjectionUpdate={onProjectionUpdate}
+            />
+          )}
           <Suspense fallback={null}>
             <Ground progressRef={progressRef} />
             <TriconeBit progressRef={progressRef} />

@@ -43,9 +43,19 @@ export const LEGACY_NARRATIVE_RANGES = {
  * Global timeline visual transition ranges for chapter overlays.
  */
 export const GLOBAL_TRANSITION_RANGES = {
-  subsurfaceExit: { start: 0.74, end: 0.8 },
+  subsurfaceExit: { start: 0.74, end: 0.78 },
   engineeringEnter: { start: 0.78, end: 0.85 },
   engineeringExit: { start: 1.0, end: 1.0 }, // Reserved for future chapter 05 extension
+} as const;
+
+/**
+ * Local engineering progress [0, 1] reveal ranges for technical annotations.
+ */
+export const ANNOTATION_REVEAL_RANGES = {
+  planning: { start: 0.2, end: 0.3 },
+  analysis: { start: 0.35, end: 0.45 },
+  control: { start: 0.5, end: 0.6 },
+  supervision: { start: 0.65, end: 0.75 },
 } as const;
 
 /**
@@ -95,7 +105,11 @@ export const NarrativeTimeline: Record<ChapterId, NarrativeTimelineChapterConfig
 const clamp01 = (val: number) => Math.min(1, Math.max(0, val));
 
 export const interval = (progress: number, start: number, end: number): number =>
-  Math.max(0, Math.min(1, (progress - start) / (end - start)));
+  end <= start
+    ? progress >= end
+      ? 1
+      : 0
+    : Math.max(0, Math.min(1, (progress - start) / (end - start)));
 
 /**
  * Remaps global normalized progress [0, 1] into legacy progress domain [0, 1].
